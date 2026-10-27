@@ -7,7 +7,7 @@ services:
     env_file: .env
     volumes:
       - llaser-data:/app/data
-      - ./models/malicious_prompt_detector:/app/AI/API/models/malicious_prompt_detector:ro
+      - llaser-model:/app/AI/API/models/malicious_prompt_detector:ro
     restart: unless-stopped
   frontend:
     image: ghcr.io/pxl-research/llaser-workshop-demo/frontend:${LLASER_TAG:-1}
@@ -18,5 +18,35 @@ services:
       - "127.0.0.1:${LLASER_PORT:-8080}:8080"
     depends_on: [backend]
     restart: unless-stopped
+  # Installs the NLP model once: takes the file from ./models (USB stick) or downloads MODEL_URL,
+  # checks the SHA-256, decrypts it with MODEL_PASSWORD from .env, unpacks it into llaser-model.
+  model-init:
+    image: ghcr.io/pxl-research/llaser-workshop-demo/frontend:${LLASER_TAG:-1}
+    user: root
+    environment:
+      MODEL_URL: ${MODEL_URL:-https://github.com/pxl-research/llaser-workshop-demo/releases/download/model-1/model-1.tar.gz.enc}
+      MODEL_SHA256: ${MODEL_SHA256:-92e17526bf04ff61bf3b913669e888f904060552837e0b119d860268635d5d70}
+      MODEL_PASSWORD: ${MODEL_PASSWORD:-}
+    volumes:
+      - llaser-model:/model
+      - ./models:/in:ro
+    entrypoint: ["/bin/sh", "-euc"]
+    command:
+      - |
+        set -o pipefail
+        f=$${MODEL_URL##*/}
+        if [ "$$(cat /model/.source 2>/dev/null)" = "$$f" ]; then echo "model: $$f already installed"; exit 0; fi
+        [ -n "$$MODEL_PASSWORD" ] || { echo "model: set MODEL_PASSWORD in .env, then run docker compose up -d"; exit 1; }
+        if [ -f "/in/$$f" ]; then cp "/in/$$f" /tmp/m; else echo "model: downloading $$f"; curl -fsSL -o /tmp/m "$$MODEL_URL"; fi
+        echo "$$MODEL_SHA256  /tmp/m" | sha256sum -c -
+        mkdir /tmp/x
+        openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 -md sha256 -pass env:MODEL_PASSWORD -in /tmp/m | tar -xz -C /tmp/x ||
+          { echo "model: wrong MODEL_PASSWORD in .env? Fix it, then run docker compose up -d"; exit 1; }
+        rm -rf /model/* /model/.source
+        cp /tmp/x/* /model/
+        echo "$$f" > /model/.source
+        echo "model: $$f installed"
+    restart: "no"
 volumes:
   llaser-data:
+  llaser-model:

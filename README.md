@@ -51,36 +51,16 @@ Copy-Item .env.example .env
 docker compose pull
 ```
 
-### 3. Get the NLP model
+### 3. Start and test
 
-The facilitator announces the model URL and its SHA-256. Replace `<MODEL_URL>` below. The zip holds `model.onnx` and `tokenizer.json`.
-
-macOS/Linux:
-
-```bash
-mkdir -p models && curl -fL -o models/model.zip "<MODEL_URL>" && unzip -o models/model.zip -d models/malicious_prompt_detector
-```
-
-Windows PowerShell (the first statement turns off the progress bar, which makes large downloads very slow):
-
-```powershell
-$ProgressPreference = 'SilentlyContinue'; New-Item -ItemType Directory -Force models | Out-Null; Invoke-WebRequest -Uri "<MODEL_URL>" -OutFile models\model.zip; Expand-Archive models\model.zip -DestinationPath models\malicious_prompt_detector -Force
-```
-
-Optional check: compare the hash with the announced SHA-256.
-
-```bash
-shasum -a 256 models/model.zip      # macOS/Linux
-Get-FileHash models\model.zip       # Windows PowerShell
-```
-
-### 4. Start and test
-
-1. Open `.env` in a text editor and put your OpenRouter key after `OPENROUTER_API_KEY=` (from your handout slip, or your own key from https://openrouter.ai/keys).
+1. Open `.env` in a text editor and fill in:
+   - `OPENROUTER_API_KEY=`: from your handout slip, or your own key from https://openrouter.ai/keys.
+   - `MODEL_PASSWORD=`: from the facilitator's e-mail. The NLP model is encrypted; the app downloads and installs it by itself.
 2. Start the app:
    ```bash
    docker compose up -d
    ```
+   The first start also downloads the NLP model (about 270 MB). Check it with `docker compose logs model-init`: the last line says `model: ... installed`.
 3. Open http://127.0.0.1:8080 and wait until the banner at the top disappears.
 4. Click the upload button and upload the three PDFs in `corpus/` (you can select all three at once).
 5. Ask a question about the course, for example "Who teaches the course?".
@@ -128,17 +108,17 @@ Do not upload confidential documents.
 | Answer `Query processing failed`, or upload fails with `Indexing failed: the embedding or vector store service returned an error` | Wrong OpenRouter key, no credit, or the model is not available. |
 | Page does not load | Run `docker compose ps`. If the backend is not running, run `docker compose up -d`. The frontend recovers by itself. |
 | `query blocked: prompt defense unavailable, try again later` | A defense is on but does not work. LLM defense: the URL or key is wrong (no `/v1` at the end of the URL), or the Spark is offline; switch it off and on, or leave it off. NLP defense: the model is missing. |
-| Security page: NLP defense "Unavailable", "model not found" | Unzip the model into `models/malicious_prompt_detector/`, then switch the NLP defense off and on. Linux: if Docker created the folder first, run `sudo chown -R "$USER" models` before you unzip. |
+| Security page: NLP defense "Unavailable", "model not found" | Run `docker compose logs model-init`. `set MODEL_PASSWORD` or `wrong MODEL_PASSWORD`: fix the password in `.env`. Download failed: check the internet connection, or copy the model file from the USB stick into a `models` folder in the repo. Then run `docker compose up -d` and switch the NLP defense off and on. |
 | "Your session is currently blocked" | Go to the Alerts page and accept or deny the alert, or open a new tab. |
 | Upload: "Unsupported document type" | Upload PDF files only. |
 | Odd answer order | The reranker provider is down; the app then uses the vector order. |
 | Windows: Docker does not start | Turn on WSL 2 and virtualization in the BIOS/UEFI. Windows on Arm: Docker Desktop is Early Access there. |
 | Image pull too slow at the venue | Ask for the USB stick. Find your architecture with `docker version --format '{{.Server.Arch}}'` (amd64 or arm64), then run `docker load -i llaser-<arch>.tar`. The app still needs internet for OpenRouter. |
 
-Stop the app: `docker compose down`. Reset everything (documents, chat memory): `docker compose down -v`.
+Stop the app: `docker compose down`. Reset everything (documents, chat memory, the installed model): `docker compose down -v`. The next `docker compose up -d` downloads the model again.
 
 ## Licences
 
 - This repo: Apache License 2.0, see [LICENSE](LICENSE).
 - The backend image contains PyMuPDF and pymupdf4llm, licensed under AGPL-3.0. Source: https://github.com/pymupdf/PyMuPDF
-- The NLP model is distributed separately. It is a fine-tune of DistilBERT (Apache-2.0); see the MODEL_CARD in its zip.
+- The NLP model is distributed separately (encrypted). It is a fine-tune of DistilBERT (Apache-2.0). Read its model card after installation: `docker compose run --rm --entrypoint cat model-init /model/MODEL_CARD.md`.

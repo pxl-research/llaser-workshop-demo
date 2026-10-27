@@ -10,6 +10,10 @@ COPY AI/AI-web-app/ .
 RUN npm run build
 
 FROM nginxinc/nginx-unprivileged:1.30.6-alpine
+# openssl: the model-init service in docker-compose.yml reuses this image to decrypt the NLP model.
+USER root
+RUN apk add --no-cache openssl
+USER 101
 COPY AI/AI-web-app/nginx.local.conf /etc/nginx/conf.d/default.conf
 COPY --from=builder /app/dist /usr/share/nginx/html
 EXPOSE 8080
