@@ -22,6 +22,8 @@ from AI.API.schemas import (
     SecurityConfigResponse,
     SecurityConfigUpdateRequest,
     SystemInfoResponse,
+    SystemPromptResponse,
+    SystemPromptUpdateRequest,
 )
 from AI.API.uploads import normalize_upload_filename, save_upload_file
 
@@ -147,7 +149,7 @@ def update_security_config(request: SecurityConfigUpdateRequest):
                 detector.set_threshold(request.nlp_confidence_threshold)
                 logger.info("NLP threshold set to %s", request.nlp_confidence_threshold)
         except Exception:
-            logger.warning("Could not update NLP threshold — detector not available")
+            logger.warning("Could not update NLP threshold: detector not available")
 
     if request.max_upload_size_mb is not None:
         settings.MAX_UPLOAD_SIZE_BYTES = int(request.max_upload_size_mb * 1024 * 1024)
@@ -159,6 +161,28 @@ def update_security_config(request: SecurityConfigUpdateRequest):
         settings.PROVIDER_TIMEOUT_SECONDS = request.provider_timeout_seconds
 
     return get_security_config()
+
+
+MAX_SYSTEM_PROMPT_CHARS = 8000
+
+
+@app.get("/system-prompt", response_model=SystemPromptResponse)
+def get_system_prompt():
+    """Return the active chat system prompt and the default one."""
+    return SystemPromptResponse(prompt=settings.SYSTEM_PROMPT, default_prompt=settings.DEFAULT_SYSTEM_PROMPT)
+
+
+@app.post("/system-prompt", response_model=SystemPromptResponse)
+def update_system_prompt(request: SystemPromptUpdateRequest):
+    """Set the chat system prompt (runtime only); null resets it to the default."""
+    prompt = settings.DEFAULT_SYSTEM_PROMPT if request.prompt is None else request.prompt
+    if "{context}" not in prompt:
+        raise HTTPException(status_code=422, detail="The prompt must contain {context}: that is where the documents go.")
+    if len(prompt) > MAX_SYSTEM_PROMPT_CHARS:
+        raise HTTPException(status_code=422, detail=f"The prompt is too long (at most {MAX_SYSTEM_PROMPT_CHARS} characters).")
+    settings.SYSTEM_PROMPT = prompt
+    logger.info("System prompt %s", "reset to default" if request.prompt is None else "updated")
+    return get_system_prompt()
 
 
 @app.get("/system-info", response_model=SystemInfoResponse)

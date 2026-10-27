@@ -18,10 +18,13 @@ const securityConfig = {
 };
 
 function renderSecurityPage() {
-  mockFetch.mockResolvedValue({
-    ok: true,
-    json: async () => securityConfig,
-  } as Response);
+  const bodies: Record<string, unknown> = {
+    "/api/security-config": securityConfig,
+    "/api/available-llms": [],
+    "/api/current-config": { status: "success", config: { llm: "test/model" } },
+    "/api/system-prompt": { prompt: "{context}", default_prompt: "{context}" },
+  };
+  mockFetch.mockImplementation(async (url: string) => ({ ok: true, json: async () => bodies[url] }) as Response);
 
   return render(<SecurityPage />);
 }
@@ -44,12 +47,20 @@ describe("SecurityPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Apply changes" }));
 
     await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(mockFetch.mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(1);
     });
-    const [url, init] = mockFetch.mock.calls[1];
+    const [url, init] = mockFetch.mock.calls.find(([, init]) => init?.method === "POST")!;
     expect(url).toBe("/api/security-config");
     expect(init.method).toBe("POST");
     expect(JSON.parse(init.body)).toEqual({ use_homebrew: true, use_nlp_defense: false });
+  });
+
+  it("shows the chat model and system prompt sections", async () => {
+    renderSecurityPage();
+
+    expect(await screen.findByRole("heading", { name: "Chat Model" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "System Prompt" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Controls" })).toBeInTheDocument();
   });
 
   it("does not show the SonarQube verification", async () => {
