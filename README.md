@@ -2,7 +2,7 @@
 
 ## What this is
 
-LLASER is a RAG chat app with two prompt-injection defenses, made by PXL research. This repo is a workshop copy, derived from LLASER_demo2 at `e8bfd4c`. You run it on your own laptop with Docker, upload documents, chat with them, attack the app and switch the defenses on and off.
+LLASER is a RAG chat app with two prompt-injection defenses, made by PXL research. You run it on your own laptop with Docker, upload documents, chat with them, attack the app and switch the defenses on and off.
 
 - **NLP defense:** a small classifier model that runs on your laptop.
 - **LLM defense:** a language model on the PXL DGX Spark that checks each question. It is only reachable during the workshop.
