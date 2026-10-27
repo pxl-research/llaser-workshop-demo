@@ -11,3 +11,5 @@ AI/AI/API/models/
 .claude/
 .venv/
 docs/
+coverage.xml
+.coverage

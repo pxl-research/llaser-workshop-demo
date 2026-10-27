@@ -35,7 +35,7 @@ export default defineConfig(({ mode }) => {
       include: ['src/**/*.{test,spec}.{ts,tsx}'],
       exclude: ['e2e/**', 'node_modules/**', 'dist/**'],
       coverage: {
-        reporter: ['text', 'json-summary', 'lcov', 'html'],
+        reporter: ['text', 'json-summary', ['lcov', { projectRoot: '../..' }], 'html'],
         reportsDirectory: './coverage',
       },
     },
