@@ -396,6 +396,13 @@ class ApiTestCase(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("secret detail", response.text)
         self.assertIn("secret detail", "\n".join(logs.output))
 
+    def test_log_formatter_escapes_line_breaks_in_messages(self):
+        record = logging.LogRecord("t", logging.INFO, __file__, 1, "Upload: %s", ("a.pdf\r\nFAKE - ERROR - x",), None)
+
+        line = api_module.OneLineFormatter("%(levelname)s - %(message)s").format(record)
+
+        self.assertEqual(line, "INFO - Upload: a.pdf\\r\\nFAKE - ERROR - x")
+
     async def test_update_config_updates_reranker(self):
         response = await self.client.post(
             "/update-config",

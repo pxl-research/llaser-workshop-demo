@@ -26,10 +26,16 @@ from AI.API.schemas import (
 from AI.API.uploads import normalize_upload_filename, save_upload_file
 
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
+class OneLineFormatter(logging.Formatter):
+    """Escapes CR/LF in messages, so request data (filenames, alert ids) cannot forge extra log lines."""
+
+    def formatMessage(self, record):
+        return super().formatMessage(record).replace("\r", "\\r").replace("\n", "\\n")
+
+
+_log_handler = logging.StreamHandler()
+_log_handler.setFormatter(OneLineFormatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
+logging.basicConfig(level=logging.INFO, handlers=[_log_handler])
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 

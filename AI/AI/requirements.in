@@ -1,6 +1,6 @@
 # Top-level backend dependencies (human-edited).
 # Regenerate the lock file from AI/AI with:
-#   uv pip compile requirements.in --python-version 3.11 --python-platform x86_64-manylinux_2_28 -o requirements.txt
+#   uv pip compile requirements.in --python-version 3.11 --python-platform x86_64-manylinux_2_28 --generate-hashes -o requirements.txt
 
 # --- FastAPI API ---
 fastapi>=0.115,<0.142
