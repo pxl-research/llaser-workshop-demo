@@ -44,12 +44,12 @@ describe("App shell", () => {
     expect(screen.getByText("Chat page content")).toBeInTheDocument();
   });
 
-  it("switches between Chat, Security, and Alerts pages", () => {
+  it("switches between Chat, Controls, and Alerts pages", () => {
     render(<App />);
 
     expect(screen.queryByRole("button", { name: "Model Configuration" })).toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: "Security" }));
+    fireEvent.click(screen.getByRole("button", { name: "Controls" }));
     expect(screen.getByText("Security page content")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Alerts" }));
@@ -65,7 +65,7 @@ describe("App shell", () => {
     const chatDraft = screen.getByLabelText("chat draft");
     fireEvent.change(chatDraft, { target: { value: "keep this draft" } });
 
-    fireEvent.click(screen.getByRole("button", { name: "Security" }));
+    fireEvent.click(screen.getByRole("button", { name: "Controls" }));
     expect(screen.getByText("Security page content")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Chat" }));

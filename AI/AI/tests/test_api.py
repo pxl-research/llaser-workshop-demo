@@ -137,6 +137,7 @@ class ApiTestCase(unittest.IsolatedAsyncioTestCase):
         settings.BACKGROUND_WARMUP = False
         settings.USE_HOMEBREW = False
         settings.USE_NLP_DEFENSE = False
+        settings.SYSTEM_PROMPT = settings.DEFAULT_SYSTEM_PROMPT
         readiness.readiness.reset_for_system_type("rag")
         readiness.readiness.mark_ready()
         settings.MAX_UPLOAD_SIZE_BYTES = 25 * 1024 * 1024
@@ -940,6 +941,45 @@ class ApiTestCase(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(settings.STATIC_CODE_ANALYSIS_VERIFIED, original_value)
         # But other fields should have been updated
         self.assertEqual(data["max_output_tokens"], 2048)
+
+    async def test_system_prompt_get_returns_active_and_default(self):
+        settings.SYSTEM_PROMPT = "Custom {context}"
+
+        response = await self.client.get("/system-prompt")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.json(),
+            {"prompt": "Custom {context}", "default_prompt": settings.DEFAULT_SYSTEM_PROMPT},
+        )
+
+    async def test_system_prompt_post_sets_prompt(self):
+        response = await self.client.post("/system-prompt", json={"prompt": "Only facts. {context}"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["prompt"], "Only facts. {context}")
+        self.assertEqual(settings.SYSTEM_PROMPT, "Only facts. {context}")
+
+    async def test_system_prompt_post_null_resets_to_default(self):
+        settings.SYSTEM_PROMPT = "Custom {context}"
+
+        response = await self.client.post("/system-prompt", json={"prompt": None})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(settings.SYSTEM_PROMPT, settings.DEFAULT_SYSTEM_PROMPT)
+
+    async def test_system_prompt_post_requires_context_placeholder(self):
+        response = await self.client.post("/system-prompt", json={"prompt": "No placeholder"})
+
+        self.assertEqual(response.status_code, 422)
+        self.assertIn("{context}", response.json()["detail"])
+        self.assertEqual(settings.SYSTEM_PROMPT, settings.DEFAULT_SYSTEM_PROMPT)
+
+    async def test_system_prompt_post_rejects_too_long_prompt(self):
+        response = await self.client.post("/system-prompt", json={"prompt": "{context}" + "x" * 8000})
+
+        self.assertEqual(response.status_code, 422)
+        self.assertIn("8000", response.json()["detail"])
 
 
 if __name__ == "__main__":

@@ -89,3 +89,12 @@ class SecurityConfigUpdateRequest(BaseModel):
     max_upload_size_mb: Optional[float] = Field(default=None, gt=0, le=500)
     max_output_tokens: Optional[int] = Field(default=None, ge=64, le=32768)
     provider_timeout_seconds: Optional[float] = Field(default=None, ge=1, le=300)
+
+
+class SystemPromptResponse(BaseModel):
+    prompt: str
+    default_prompt: str
+
+
+class SystemPromptUpdateRequest(StrictModel):
+    prompt: Optional[str] = None

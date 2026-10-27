@@ -71,7 +71,7 @@ function App() {
               className={`nav-button ${currentPage === 'security' ? 'active' : ''}`}
               onClick={() => setCurrentPage('security')}
             >
-              Security
+              Controls
             </button>
             <button 
               className={`nav-button ${currentPage === 'alerts' ? 'active' : ''}`}

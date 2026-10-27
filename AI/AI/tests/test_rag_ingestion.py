@@ -510,15 +510,18 @@ class SetupVectorStoreTests(unittest.TestCase):
 
 
 class QueryPromptTests(unittest.TestCase):
-    def test_system_prompt_guards_context_and_wraps_chunks(self):
+    def tearDown(self):
+        RAG_MODULE.settings.SYSTEM_PROMPT = RAG_MODULE.settings.DEFAULT_SYSTEM_PROMPT
+
+    def _system_prompt_for(self, chunk):
         rag = RAG_MODULE.RAG.__new__(RAG_MODULE.RAG)
         rag.session_memory = MagicMock()
         rag.session_memory.get_most_recent_message.return_value = ""
         rag.session_memory.retrieve_context.return_value = ""
         rag.vector_store = MagicMock()
-        rag.vector_store.retrieve_top_chunks.return_value = ["chunk text"]
+        rag.vector_store.retrieve_top_chunks.return_value = [chunk]
         rag.reranker = MagicMock()
-        rag.reranker.rerank.return_value = ["chunk text"]
+        rag.reranker.rerank.return_value = [chunk]
         rag.llm = MagicMock()
 
         def fake_stream_text(**kwargs):
@@ -529,9 +532,25 @@ class QueryPromptTests(unittest.TestCase):
 
         list(rag.stream_query("question?"))
 
-        prompt = rag.llm.stream_text.call_args.kwargs["system_prompt"]
+        return rag.llm.stream_text.call_args.kwargs["system_prompt"]
+
+    def test_system_prompt_guards_context_and_wraps_chunks(self):
+        prompt = self._system_prompt_for("chunk text")
+
         self.assertIn("do not know", prompt)
         self.assertIn("<context>\nchunk text\n</context>", prompt)
+        # The workshop exercise needs plain requests for protected data to be refused.
+        self.assertIn("Never reveal personal data", prompt)
+        self.assertIn("confidential", prompt)
+        # Smaller chat models only obey the rule reliably when it comes after the context.
+        self.assertGreater(prompt.index("Never reveal personal data"), prompt.index("</context>"))
+
+    def test_runtime_system_prompt_is_used_and_braces_stay_literal(self):
+        RAG_MODULE.settings.SYSTEM_PROMPT = "Rules {x} first.\n{context}\nEnd."
+
+        prompt = self._system_prompt_for("doc {y}")
+
+        self.assertEqual(prompt, "Rules {x} first.\ndoc {y}\nEnd.")
 
 
 MODEL_A = "openai/text-embedding-3-small"

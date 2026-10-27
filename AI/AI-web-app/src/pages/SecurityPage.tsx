@@ -5,6 +5,7 @@ import {
   type DefenseStatus,
   type SecurityConfig,
 } from "../services/security";
+import { ModelSection, SystemPromptSection } from "./ControlSections";
 import "../styles/security-page.css";
 
 function StatusBadge({ status, error }: { status: DefenseStatus; error?: string | null }) {
@@ -113,10 +114,10 @@ function SecurityPage() {
   return (
     <div className="security-page">
       <div className="security-box">
-        <h1 className="security-title">Security Controls</h1>
+        <h1 className="security-title">Controls</h1>
         <p className="security-subtitle">
-          Toggle prompt defenses. Changes require applying. Some defenses need a local model
-          before they become active.
+          Four knobs: the chat model, the system prompt and two prompt defenses. Changes last until
+          the app restarts.
         </p>
 
         {error && <p className="security-error">{error}</p>}
@@ -126,6 +127,9 @@ function SecurityPage() {
         {config.homebrew_status === "error" && config.homebrew_error && (
           <p className="security-error">{config.homebrew_error}</p>
         )}
+
+        <ModelSection />
+        <SystemPromptSection />
 
         <section className="security-group">
           <h2 className="security-group__title">Prompt Defenses</h2>
@@ -156,8 +160,8 @@ function SecurityPage() {
               />
               <span className="security-toggle__label">NLP/ML defense (DistilBERT classifier)</span>
               <span className="security-toggle__desc">
-                Runs on this laptop. Needs the model files in{" "}
-                <code>models/malicious_prompt_detector</code> (see the README).
+                Runs on this laptop. The model is installed automatically on the first start (see the
+                README).
               </span>
             </label>
             <StatusBadge status={config.nlp_defense_status} error={config.nlp_defense_error} />
