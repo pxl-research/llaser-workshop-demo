@@ -350,10 +350,16 @@ def update_configuration(request: ConfigUpdateRequest):
         if component_name:
             readiness.readiness.set_component_ready(component_name, model=request.value)
 
-        logger.info("Config update successful - Type: %s", request.config_type)
+        message = result.get("message")
+        if result.get("status") == "error":
+            # The message can carry exception text: log it, never return it
+            logger.error("Config update failed - Type: %s - %s", request.config_type, message)
+            message = "Configuration update failed"
+        else:
+            logger.info("Config update successful - Type: %s", request.config_type)
         return {
             "status": result.get("status"),
-            "message": result.get("message"),
+            "message": message,
             "config_type": request.config_type,
             "value": request.value,
             "documents_reembedded": result.get("documents_reembedded"),

@@ -377,6 +377,25 @@ class ApiTestCase(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.json()["config_type"], "llm")
         self.assertEqual(response.json()["value"], "openrouter/model")
 
+    async def test_update_config_error_hides_exception_text(self):
+        class ErrorSystem(FakeSystem):
+            def update_llm(self, value: str):
+                return {"status": "error", "message": "Failed to update LLM: secret detail", "model": None}
+
+        services._system_instance = ErrorSystem()
+        logging.disable(logging.NOTSET)
+        with self.assertLogs(level="ERROR") as logs:
+            response = await self.client.post(
+                "/update-config",
+                json={"config_type": "llm", "value": "openrouter/model"},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["status"], "error")
+        self.assertEqual(response.json()["message"], "Configuration update failed")
+        self.assertNotIn("secret detail", response.text)
+        self.assertIn("secret detail", "\n".join(logs.output))
+
     async def test_update_config_updates_reranker(self):
         response = await self.client.post(
             "/update-config",
