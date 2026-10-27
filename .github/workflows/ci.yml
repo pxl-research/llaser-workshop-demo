@@ -1,0 +1,68 @@
+name: ci
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - run: bash scripts/leakcheck.sh
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+      - run: pip install -c AI/AI/requirements.txt fastapi httpx requests prometheus-client python-multipart pydantic pytest uvicorn python-dotenv numpy openai
+      - run: python -m pytest tests -q
+        working-directory: AI/AI
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: AI/AI-web-app/package-lock.json
+      - run: npm ci && npx vitest run && npm run build
+        working-directory: AI/AI-web-app
+  images:
+    needs: test
+    if: github.event_name == 'push'
+    # ponytail: arm64 builds under QEMU (about 7 min for pip install); if too slow,
+    # use a native ubuntu-24.04-arm matrix and merge with `docker buildx imagetools create`
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - { image: backend, context: AI/AI, file: AI/AI/Dockerfile }
+          - { image: frontend, context: ., file: AI/AI-web-app/Dockerfile.local }
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/${{ github.repository }}/${{ matrix.image }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}
+            type=sha
+      - uses: docker/build-push-action@v7
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}

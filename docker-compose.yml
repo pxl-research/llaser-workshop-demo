@@ -1,0 +1,22 @@
+# LLASER workshop: docker compose up -d, then open http://127.0.0.1:8080
+name: llaser-workshop
+services:
+  backend:
+    image: ghcr.io/pxl-research/llaser-workshop-demo/backend:${LLASER_TAG:-1}
+    build: AI/AI
+    env_file: .env
+    volumes:
+      - llaser-data:/app/data
+      - ./models/malicious_prompt_detector:/app/AI/API/models/malicious_prompt_detector:ro
+    restart: unless-stopped
+  frontend:
+    image: ghcr.io/pxl-research/llaser-workshop-demo/frontend:${LLASER_TAG:-1}
+    build:
+      context: .
+      dockerfile: AI/AI-web-app/Dockerfile.local
+    ports:
+      - "127.0.0.1:${LLASER_PORT:-8080}:8080"
+    depends_on: [backend]
+    restart: unless-stopped
+volumes:
+  llaser-data:

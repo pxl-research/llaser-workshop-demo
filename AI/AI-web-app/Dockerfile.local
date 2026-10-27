@@ -1,0 +1,15 @@
+# LLASER workshop frontend. Build context: the repository root.
+#   docker build -f AI/AI-web-app/Dockerfile.local -t llaser-workshop/frontend:local .
+# The build output does not depend on the CPU, so the node stage runs natively on every builder.
+FROM --platform=$BUILDPLATFORM node:22-alpine AS builder
+WORKDIR /app
+COPY AI/AI-web-app/package.json AI/AI-web-app/package-lock.json ./
+RUN npm ci
+COPY AI/AI-web-app/ .
+# No VITE_API_URL and no AI_NAME: the app calls /api/..., which nginx proxies to the backend.
+RUN npm run build
+
+FROM nginxinc/nginx-unprivileged:1.30.6-alpine
+COPY AI/AI-web-app/nginx.local.conf /etc/nginx/conf.d/default.conf
+COPY --from=builder /app/dist /usr/share/nginx/html
+EXPOSE 8080

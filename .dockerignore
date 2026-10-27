@@ -1,0 +1,5 @@
+# Builds with the repo root as context (Dockerfile.local) must not copy host node_modules over npm ci.
+**/node_modules
+**/dist
+**/coverage
+models

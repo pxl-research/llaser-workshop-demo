@@ -1,0 +1,41 @@
+.system-readiness-banner {
+  width: min(1180px, calc(100% - 48px));
+  margin: 0 auto;
+  padding: 14px 18px;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+}
+
+.system-readiness-banner--loading {
+  background: rgba(239, 246, 255, 0.95);
+  border-color: rgba(147, 197, 253, 0.9);
+  color: #1e3a8a;
+}
+
+.system-readiness-banner--error {
+  background: rgba(254, 242, 242, 0.95);
+  border-color: rgba(252, 165, 165, 0.9);
+  color: #991b1b;
+}
+
+.system-readiness-banner__content {
+  display: grid;
+  gap: 6px;
+}
+
+.system-readiness-banner__title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.system-readiness-banner__message {
+  margin: 0;
+  font-size: 0.92rem;
+}
+
+.system-readiness-banner__hint {
+  margin: 2px 0 0;
+  font-size: 0.85rem;
+  opacity: 0.9;
+}

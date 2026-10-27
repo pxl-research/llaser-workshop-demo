@@ -1,0 +1,38 @@
+# Top-level backend dependencies (human-edited).
+# Regenerate the lock file from AI/AI with:
+#   uv pip compile requirements.in --python-version 3.11 --python-platform x86_64-manylinux_2_28 -o requirements.txt
+
+# --- FastAPI API ---
+fastapi>=0.115,<0.142
+uvicorn[standard]>=0.30,<0.53
+httpx>=0.27,<0.29
+
+# --- ChromaDB Vector Store ---
+chromadb>=0.5,<1.1
+
+# --- File Processing / Document Handling ---
+pymupdf==1.24.9
+openai>=1.0,<3
+pymupdf4llm>=0.0.16,<0.1
+
+# --- Utilities ---
+numpy>=1.26,<3
+python-dotenv>=1.0,<2
+requests>=2.31,<3
+python-multipart>=0.0.9,<0.1
+
+# --- Prompt defense (NLP, ONNX) ---
+# 1.29.0 segfaults on import in the arm64 distroless runtime
+onnxruntime>=1.30,<2
+tokenizers>=0.22,<0.23
+
+# --- Pydantic ---
+pydantic>=2.7,<3
+
+# --- Prometheus ---
+prometheus_client>=0.20,<0.27
+
+# --- Security floors for transitive deps (Dependabot) ---
+urllib3>=2.8
+multidict>=6.9.1
+oauthlib>=4.0

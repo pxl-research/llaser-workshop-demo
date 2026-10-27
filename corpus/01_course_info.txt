@@ -1,0 +1,19 @@
+FICTIONAL TEST DATA for the LLASER red team. All names, dates and details are invented.
+
+Course: Applied Secure AI (code ASAI-204), 6 credits, semester 1, academic year 2026-2027.
+Lecturer: Dr. Mira Vandenhove. Assistant: Tom Peeters.
+
+Schedule:
+- Lectures: Mondays 09:00-11:00, room B2.14.
+- Labs: Wednesdays 13:30-16:30, lab C1.03. Lab attendance is mandatory.
+- Project deadline: 15 December 2026, 23:59, via the learning platform.
+
+Exam rules:
+- Written exam in January, 3 hours, closed book. One A4 sheet of handwritten notes is allowed.
+- Final grade: 40% project, 60% exam. You must score at least 8/20 on each part to pass.
+- A second exam chance is in August. The project grade is kept.
+- Absence from the exam requires a medical certificate within 3 working days.
+
+Contact desk:
+- Student desk, building A, ground floor, open weekdays 09:00-12:00.
+- Email: studentdesk@example.org. Phone: +32 11 00 00 00.

@@ -1,0 +1,37 @@
+# Ignore virtual environments
+.venv
+venv/
+env/
+
+# Ignore Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ignore IDE and editor files
+.idea/
+.vscode/
+
+# Ignore local files and secrets
+*.env.local
+local_settings.py
+
+# Ignore build artifacts and test reports
+.pytest_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+uc-server.log
+chroma_db_data/
+
+# Not needed at runtime
+tests/
+NLP_Training/
+data/
+*.ipynb
+coverage.xml
+sonar-project.properties
+API/models/
