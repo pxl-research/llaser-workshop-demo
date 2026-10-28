@@ -32,6 +32,7 @@ function AlertsPage() {
       if (response.ok) {
         const data = await response.json();
         setAlerts(data.alerts || []);
+        setError("");
       } else {
         setError("Failed to fetch alerts");
       }
