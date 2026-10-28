@@ -5,6 +5,7 @@ export type SystemPrompt = { prompt: string; default_prompt: string };
 export type LlmModel = {
   id: string;
   name: string;
+  context_length?: number | null;
   prompt_price: string | null;
   completion_price: string | null;
 };

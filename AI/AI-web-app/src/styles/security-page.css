@@ -276,3 +276,149 @@
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 13px;
 }
+
+/* ===== MODEL TABLE (look of the LLASER_demo2 configurator) ===== */
+
+.lt-topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.lt-search {
+  flex: 1;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 10px 16px;
+  font: inherit;
+  font-size: 14px;
+  border-radius: 999px;
+  background: #f2f2f5;
+  border: 1px solid #d4d8e1;
+  color: #1d2024;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.lt-search:focus {
+  outline: none;
+  border-color: #6f8bff;
+  box-shadow: 0 0 0 3px rgba(111, 139, 255, 0.25);
+}
+
+.lt-table-wrap {
+  max-height: 420px;
+  overflow: auto;
+  border: 1px solid #d4d8e1;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #fefefe 0%, #fff 100%);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.1);
+}
+
+.lt-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 13px;
+  color: #1d2024;
+}
+
+.lt-th,
+.lt-td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #d4d8e1;
+  text-align: left;
+}
+
+.lt-th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  font-weight: 700;
+  background: #fff;
+}
+
+.lt-tr:hover td {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.lt-center {
+  text-align: center;
+}
+
+.lt-strong {
+  font-weight: 600;
+}
+
+.lt-id {
+  font-size: 11px;
+  color: #6b7280;
+  overflow-wrap: anywhere;
+}
+
+.lt-num {
+  font-variant-numeric: tabular-nums;
+}
+
+.lt-table input[type="checkbox"] {
+  appearance: none;
+  margin: 0;
+  width: 18px;
+  height: 18px;
+  border: 1px solid #d4d8e1;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  display: inline-grid;
+  place-content: center;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+
+.lt-table input[type="checkbox"]:checked {
+  background: #5b7cff;
+  border-color: #5b7cff;
+}
+
+.lt-table input[type="checkbox"]:checked::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="none" stroke="%23ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" d="M4 12.6l4.2 4.2 12.8-12.8"/></svg>');
+  background-size: cover;
+}
+
+.lt-table input[type="checkbox"]:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(111, 139, 255, 0.25);
+}
+
+.lt-footer,
+.lt-pager {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: #374151;
+}
+
+.lt-footer {
+  justify-content: space-between;
+  padding: 8px 4px;
+}
+
+.lt-icon-btn {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  color: #374151;
+}
+
+.lt-icon-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}

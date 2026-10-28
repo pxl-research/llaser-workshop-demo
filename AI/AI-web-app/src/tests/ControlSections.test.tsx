@@ -49,13 +49,26 @@ describe("control sections", () => {
     render(<ModelSection />);
     await waitFor(() => expect(screen.getByText(/Current:/).textContent).toContain("($0.10"));
 
-    fireEvent.change(screen.getByLabelText("Chat model"), { target: { value: "pricey/model" } });
+    fireEvent.click(screen.getByLabelText("Select Pricey"));
     fireEvent.click(screen.getByRole("button", { name: "Use this model" }));
 
     await waitFor(() => expect(screen.getByText(/Current:/).textContent).toContain("pricey/model"));
     const post = mockFetch.mock.calls.find(([, init]) => init?.method === "POST");
     expect(post?.[0]).toBe("/api/update-config");
     expect(JSON.parse(post?.[1].body)).toEqual({ config_type: "llm", value: "pricey/model" });
+  });
+
+  it("filters the model table by search and preselects the current model", async () => {
+    render(<ModelSection />);
+
+    expect(await screen.findByLabelText("Select Cheap")).toBeChecked();
+    expect(screen.getByText("2 models")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Search models"), { target: { value: "pric" } });
+
+    expect(screen.queryByLabelText("Select Cheap")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Select Pricey")).toBeInTheDocument();
+    expect(screen.getByText("1 models")).toBeInTheDocument();
   });
 
   it("applies an edited system prompt", async () => {
