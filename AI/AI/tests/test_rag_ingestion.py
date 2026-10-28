@@ -513,11 +513,11 @@ class QueryPromptTests(unittest.TestCase):
     def tearDown(self):
         RAG_MODULE.settings.SYSTEM_PROMPT = RAG_MODULE.settings.DEFAULT_SYSTEM_PROMPT
 
-    def _system_prompt_for(self, chunk):
+    def _run_query(self, chunk, question="question?", recent_turns=(), older=""):
         rag = RAG_MODULE.RAG.__new__(RAG_MODULE.RAG)
         rag.session_memory = MagicMock()
-        rag.session_memory.get_most_recent_message.return_value = ""
-        rag.session_memory.retrieve_context.return_value = ""
+        rag.session_memory.get_recent_turns.return_value = list(recent_turns)
+        rag.session_memory.retrieve_context.return_value = older
         rag.vector_store = MagicMock()
         rag.vector_store.retrieve_top_chunks.return_value = [chunk]
         rag.reranker = MagicMock()
@@ -530,9 +530,50 @@ class QueryPromptTests(unittest.TestCase):
 
         rag.llm.stream_text.side_effect = fake_stream_text
 
-        list(rag.stream_query("question?"))
+        list(rag.stream_query(question))
+        return rag
 
-        return rag.llm.stream_text.call_args.kwargs["system_prompt"]
+    def _system_prompt_for(self, chunk):
+        return self._run_query(chunk).llm.stream_text.call_args.kwargs["system_prompt"]
+
+    def test_recent_turns_go_to_the_model_as_chat_history(self):
+        turns = [
+            {"question": "What is the course about?", "answer": "Security.", "doc_id": "id-1"},
+            {"question": "When is the exam?", "answer": "In June.", "doc_id": "id-2"},
+        ]
+
+        rag = self._run_query("chunk", question="And who teaches it?", recent_turns=turns)
+
+        kwargs = rag.llm.stream_text.call_args.kwargs
+        self.assertEqual(kwargs["user_message"], "And who teaches it?")
+        self.assertEqual(kwargs["history"], [("What is the course about?", "Security."), ("When is the exam?", "In June.")])
+        rag.session_memory.get_recent_turns.assert_called_once_with(RAG_MODULE.settings.CHAT_HISTORY_TURNS)
+        # Older turns are still searched, without the ones already sent as history.
+        self.assertEqual(rag.session_memory.retrieve_context.call_args.kwargs["exclude_ids"], {"id-1", "id-2"})
+
+    def test_follow_up_searches_documents_with_the_previous_question(self):
+        turns = [{"question": "What is the course about?", "answer": "Security.", "doc_id": "id-1"}]
+
+        rag = self._run_query("chunk", question="And who teaches it?", recent_turns=turns)
+
+        search = rag.vector_store.retrieve_top_chunks.call_args.args[0]
+        self.assertIn("What is the course about?", search)
+        self.assertIn("And who teaches it?", search)
+        # The reranker judges the chunks against the new question alone, so a topic switch still wins.
+        self.assertEqual(rag.reranker.rerank.call_args.args[0], "And who teaches it?")
+
+    def test_first_question_searches_with_itself_and_sends_no_history(self):
+        rag = self._run_query("chunk", question="Who teaches the course?")
+
+        self.assertEqual(rag.vector_store.retrieve_top_chunks.call_args.args[0], "Who teaches the course?")
+        self.assertEqual(rag.llm.stream_text.call_args.kwargs["history"], [])
+
+    def test_older_related_turns_are_added_to_the_context(self):
+        rag = self._run_query("chunk text", older="Q: old\nA: o")
+
+        prompt = rag.llm.stream_text.call_args.kwargs["system_prompt"]
+        self.assertIn("Q: old\nA: o", prompt)
+        self.assertIn("chunk text", prompt)
 
     def test_system_prompt_guards_context_and_wraps_chunks(self):
         prompt = self._system_prompt_for("chunk text")

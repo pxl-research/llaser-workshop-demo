@@ -16,18 +16,23 @@ class LLM:
                     system_prompt: str,
                     user_message: str,
                     max_new_tokens: int = 2048,
-                    temperature: float = 0.0):
-        """Yield answer text pieces as OpenRouter streams them, then return (usage, full_text)."""
+                    temperature: float = 0.0,
+                    history=()):
+        """Yield answer text pieces as OpenRouter streams them, then return (usage, full_text).
+
+        history: earlier (question, answer) pairs, oldest first, sent as real chat turns.
+        """
         load_dotenv()
 
         api_key = os.environ.get("OPENROUTER_API_KEY")
         headers = {"Authorization": f"Bearer {api_key}"}
+        messages = [{"role": "system", "content": system_prompt}]
+        for question, answer in history:
+            messages += [{"role": "user", "content": question}, {"role": "assistant", "content": answer}]
+        messages.append({"role": "user", "content": user_message})
         data = {
             "model": self.model_name,
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_message}
-            ],
+            "messages": messages,
             "max_tokens": max_new_tokens,
             "temperature": float(temperature),
             "stream": True,

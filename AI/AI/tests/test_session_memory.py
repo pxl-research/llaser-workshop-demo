@@ -144,6 +144,45 @@ class SessionMemoryCollectionTests(unittest.TestCase):
         self.assertEqual(result, "[Previous Interaction at 2026-03-01]\nQ: c\nA: 3")
         collection.query.assert_not_called()
 
+    def test_recent_turns_are_the_newest_n_oldest_first(self):
+        memory = SESSION_MEMORY.SessionMemory(MagicMock(), session_id="s1", model_name="baai/bge-m3")
+        collection = memory.vector_store.collection
+        collection.get.return_value = {
+            "metadatas": [
+                {"timestamp": "2026-01-01", "question": "a", "answer": "1", "doc_id": "id-a"},
+                {"timestamp": "2026-03-01", "question": "c", "answer": "3", "doc_id": "id-c"},
+                {"timestamp": "2026-02-01", "question": "b", "answer": "2", "doc_id": "id-b"},
+            ],
+        }
+
+        turns = memory.get_recent_turns(2)
+
+        self.assertEqual(turns, [
+            {"question": "b", "answer": "2", "doc_id": "id-b"},
+            {"question": "c", "answer": "3", "doc_id": "id-c"},
+        ])
+        self.assertEqual(collection.get.call_args.kwargs["where"], {"session_id": "s1"})
+
+    def test_recent_turns_without_session_is_empty(self):
+        memory = SESSION_MEMORY.SessionMemory(MagicMock(), session_id=None, model_name="baai/bge-m3")
+
+        self.assertEqual(memory.get_recent_turns(6), [])
+
+    def test_retrieve_context_skips_excluded_turns(self):
+        memory = SESSION_MEMORY.SessionMemory(MagicMock(), session_id="s1", model_name="baai/bge-m3")
+        memory.vector_store.collection.query.return_value = {
+            "documents": [["Q: recent\nA: r", "Q: old\nA: o"]],
+            "metadatas": [[{"doc_id": "id-recent", "timestamp": "t2"}, {"doc_id": "id-old", "timestamp": "t1"}]],
+            "distances": [[0.1, 0.1]],
+        }
+
+        result = memory.retrieve_context("q", k=3, min_similarity=0.5, exclude_ids={"id-recent"})
+
+        self.assertIn("Q: old", result)
+        self.assertNotIn("Q: recent", result)
+        # Ask for extra rows, so excluding recent turns still leaves k older ones.
+        self.assertEqual(memory.vector_store.collection.query.call_args.kwargs["n_results"], 4)
+
 
 if __name__ == "__main__":
     unittest.main()

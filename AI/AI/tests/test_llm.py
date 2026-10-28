@@ -81,6 +81,21 @@ class LLMTestCase(unittest.TestCase):
         self.assertTrue(post.call_args.kwargs["json"]["stream"])
         self.assertEqual(post.call_args.kwargs["timeout"], 7.5)
 
+    def test_stream_text_sends_history_as_chat_turns(self):
+        response = FakeStreamResponse([delta_chunk("ok"), usage_chunk(1), "data: [DONE]"])
+        with patch.dict("os.environ", {"OPENROUTER_API_KEY": "test"}, clear=False), \
+             patch("AI.API.LLM.requests.post", return_value=response) as post:
+            drain(LLM("test-model").stream_text("system", "and who teaches it?", history=[("q1", "a1"), ("q2", "a2")]))
+
+        self.assertEqual(post.call_args.kwargs["json"]["messages"], [
+            {"role": "system", "content": "system"},
+            {"role": "user", "content": "q1"},
+            {"role": "assistant", "content": "a1"},
+            {"role": "user", "content": "q2"},
+            {"role": "assistant", "content": "a2"},
+            {"role": "user", "content": "and who teaches it?"},
+        ])
+
     def test_stream_text_decodes_utf8(self):
         (pieces, _), _ = self.stream([delta_chunk("café ✓"), usage_chunk(1), "data: [DONE]"])
 

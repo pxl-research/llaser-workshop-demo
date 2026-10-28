@@ -68,7 +68,19 @@ class SessionMemory:
         except Exception as e:
             print(f"Error storing conversation in memory: {e}")
     
-    def retrieve_context(self, raw_question: str, optimized_search_query: str = None, k: int = 5, min_similarity: float = 0.3) -> str:
+    def get_recent_turns(self, n: int) -> list[dict]:
+        """The newest n Q&A pairs of this session, oldest first, as {question, answer, doc_id}."""
+        if not self.session_id:
+            return []
+        try:
+            results = self.vector_store.collection.get(where={"session_id": self.session_id}, include=["metadatas"])
+        except Exception:
+            logger.exception("Retrieving recent turns failed; answering without history")
+            return []
+        rows = sorted(results.get("metadatas") or [], key=lambda m: (m or {}).get("timestamp", ""))
+        return [{key: (m or {}).get(key, "") for key in ("question", "answer", "doc_id")} for m in rows[-n:]]
+
+    def retrieve_context(self, raw_question: str, optimized_search_query: str = None, k: int = 5, min_similarity: float = 0.3, exclude_ids=()) -> str:
         """
         Retrieve relevant past conversations.
         
@@ -93,7 +105,7 @@ class SessionMemory:
         try:
             results = self.vector_store.collection.query(
                 query_texts=[search_target],
-                n_results=k,
+                n_results=k + len(exclude_ids),
                 where={"session_id": self.session_id},
                 include=['documents', 'metadatas', 'distances']
             )
@@ -104,6 +116,8 @@ class SessionMemory:
             context_parts = []
             # Chroma's default space is squared L2 (lower = more similar); 1 - distance is a score, not cosine.
             for doc, metadata, distance in zip(results['documents'][0], results['metadatas'][0], results['distances'][0]):
+                if (metadata or {}).get("doc_id") in exclude_ids or len(context_parts) == k:
+                    continue
                 similarity = 1 - distance
                 if similarity >= min_similarity:  # Only include if meets minimum similarity threshold
                     context_parts.append(f"[Past Interaction at {metadata.get('timestamp', 'N/A')} | Similarity: {similarity:.2f}]\n{doc}")

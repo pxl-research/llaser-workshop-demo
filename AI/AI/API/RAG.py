@@ -203,12 +203,17 @@ class RAG:
         else:
             session_mem = self.session_memory
         
-        # 0) Retrieve relevant past conversations and most recent message for context
-        most_recent = session_mem.get_most_recent_message()
-        conversation_history = session_mem.retrieve_context(question, k=3, min_similarity=0.67)
-        
-        # 1) retrieve more than you want, then rerank
-        retrieved_chunks = self.vector_store.retrieve_top_chunks(question, k=10)
+        # 0) The newest turns go to the model as real chat history; older ones only when related
+        recent = session_mem.get_recent_turns(settings.CHAT_HISTORY_TURNS)
+        history = [(turn["question"], turn["answer"]) for turn in recent]
+        conversation_history = session_mem.retrieve_context(
+            question, k=3, min_similarity=0.67, exclude_ids={turn["doc_id"] for turn in recent}
+        )
+
+        # 1) retrieve more than you want, then rerank. A follow-up ("and who teaches it?") names no topic,
+        # so the search also gets the previous question; the reranker then judges against the new one.
+        search_query = f"{history[-1][0]}\n{question}" if history else question
+        retrieved_chunks = self.vector_store.retrieve_top_chunks(search_query, k=10)
 
         # 2) rerank chunks with cross-encoder
         if retrieved_chunks:
@@ -220,12 +225,8 @@ class RAG:
 
         # 3) build context from reranked chunks and conversation history
         context = "\n".join(reranked_chunks)
-        
-        # Add most recent message if available
-        if most_recent:
-            context = f"Most recent context:\n{most_recent}\n\nDocument context:\n{context}"
-        
-        # Add other conversation history if available
+
+        # Add older related conversation if available
         if conversation_history:
             context = f"Related past conversations:\n{conversation_history}\n\nCurrent context:\n{context}"
         
@@ -236,6 +237,7 @@ class RAG:
         usage, answer = yield from self.llm.stream_text(
             system_prompt=system_prompt,
             user_message=user_message,
+            history=history,
             max_new_tokens=settings.RAG_MAX_OUTPUT_TOKENS,
             temperature=0.0,
         )

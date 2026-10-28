@@ -45,6 +45,8 @@ USE_NLP_DEFENSE = env_flag("USE_NLP_DEFENSE")
 STATIC_CODE_ANALYSIS_VERIFIED = env_flag("STATIC_CODE_ANALYSIS_VERIFIED")
 BACKGROUND_WARMUP = env_flag("BACKGROUND_WARMUP", default=True)
 RAG_MAX_OUTPUT_TOKENS = int(os.getenv("RAG_MAX_OUTPUT_TOKENS", "2048"))
+# Newest Q&A turns of a chat session sent to the chat model as real conversation history.
+CHAT_HISTORY_TURNS = int(os.getenv("CHAT_HISTORY_TURNS", "6"))
 # Chat system prompt; {context} is replaced by the retrieved documents. Runtime-editable via /system-prompt.
 DEFAULT_SYSTEM_PROMPT = (
     "Answer the user's question using only the context below. "
