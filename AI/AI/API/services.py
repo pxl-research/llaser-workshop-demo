@@ -94,6 +94,7 @@ def get_system_instance():
 
 _homebrew_status = "off"  # off | loading | ready | error
 _homebrew_error: str | None = None
+_homebrew_backend: str | None = None  # spark | openrouter, once loaded
 _nlp_defense_status = "off"  # off | loading | ready | error
 _nlp_defense_error: str | None = None
 
@@ -102,17 +103,43 @@ def get_homebrew_status() -> tuple[str, str | None]:
     return _homebrew_status, _homebrew_error
 
 
+def get_homebrew_backend() -> str | None:
+    return _homebrew_backend
+
+
 def get_nlp_defense_status() -> tuple[str, str | None]:
     return _nlp_defense_status, _nlp_defense_error
 
 
+def _connect_prompt_defense():
+    """The DGX Spark first; OpenRouter when the Spark is not set or not reachable."""
+    from AI.API.Prompt_Defense import openrouter_defense, spark_defense
+
+    try:
+        return spark_defense(), "spark"
+    except Exception as spark_exc:
+        logger.warning("DGX Spark defense unavailable, falling back to OpenRouter: %s", spark_exc)
+        try:
+            return openrouter_defense(), "openrouter"
+        except Exception as fallback_exc:
+            raise RuntimeError(f"{spark_exc}; fallback: {fallback_exc}") from fallback_exc
+
+
 def get_prompt_defense():
     """Get or create the prompt defense instance."""
-    global _prompt_defense
+    global _prompt_defense, _homebrew_backend
     if _prompt_defense is None:
-        from AI.API.Prompt_Defense import PromptDefense
+        _prompt_defense, _homebrew_backend = _connect_prompt_defense()
+    return _prompt_defense
 
-        _prompt_defense = PromptDefense()
+
+def switch_prompt_defense_to_openrouter():
+    """Replace a failing Spark defense with OpenRouter until the defense is switched off and on."""
+    global _prompt_defense, _homebrew_backend
+    from AI.API.Prompt_Defense import openrouter_defense
+
+    _prompt_defense = openrouter_defense()
+    _homebrew_backend = "openrouter"
     return _prompt_defense
 
 
@@ -139,12 +166,11 @@ def load_prompt_defense_async():
     _homebrew_error = None
 
     def _worker():
-        global _prompt_defense, _homebrew_status, _homebrew_error
+        global _prompt_defense, _homebrew_status, _homebrew_error, _homebrew_backend
         try:
-            from AI.API.Prompt_Defense import PromptDefense
-            _prompt_defense = PromptDefense()
+            _prompt_defense, _homebrew_backend = _connect_prompt_defense()
             _homebrew_status = "ready"
-            logger.info("Homebrew prompt defense loaded")
+            logger.info("Homebrew prompt defense loaded on %s", _homebrew_backend)
         except Exception as exc:
             logger.exception("Failed to load homebrew prompt defense")
             _homebrew_status = "error"
@@ -191,10 +217,12 @@ def load_nlp_defense_async():
 
 
 def disable_homebrew():
-    """Mark homebrew defense as off."""
-    global _homebrew_status, _homebrew_error
+    """Mark homebrew defense as off; switching it on again tries the Spark first."""
+    global _prompt_defense, _homebrew_status, _homebrew_error, _homebrew_backend
+    _prompt_defense = None
     _homebrew_status = "off"
     _homebrew_error = None
+    _homebrew_backend = None
 
 
 def disable_nlp_defense():

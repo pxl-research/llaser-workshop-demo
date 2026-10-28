@@ -1,37 +1,41 @@
+import os
+
 import requests
 
 from AI.API import settings
 
+OPENROUTER_BASE_URL = "https://openrouter.ai/api"
+
 
 class PromptDefense:
-    """LLM-based prompt defense served by the DGX Spark (OpenAI-compatible API)."""
+    """LLM-based prompt defense on an OpenAI-compatible API: the DGX Spark, or OpenRouter as fallback."""
 
-    def __init__(self):
-        if not settings.HOMEBREW_BASE_URL:
-            raise RuntimeError("HOMEBREW_BASE_URL is not set")
-        self._headers = {"Authorization": f"Bearer {settings.HOMEBREW_API_KEY}"}
+    def __init__(self, base_url: str, api_key: str, model: str, name: str):
+        self._base_url = base_url
+        self._model = model
+        self._headers = {"Authorization": f"Bearer {api_key}"}
         try:
             response = requests.get(
-                f"{settings.HOMEBREW_BASE_URL}/v1/models",
+                f"{base_url}/v1/models",
                 headers=self._headers,
                 timeout=settings.HOMEBREW_TIMEOUT_SECONDS,
             )
             response.raise_for_status()
         except requests.HTTPError as exc:
-            raise RuntimeError(f"DGX Spark rejected the request: {exc}") from exc
+            raise RuntimeError(f"{name} rejected the request: {exc}") from exc
         except requests.RequestException as exc:
-            raise RuntimeError(f"DGX Spark unreachable: {exc}") from exc
+            raise RuntimeError(f"{name} unreachable: {exc}") from exc
         model_ids = {model["id"] for model in response.json().get("data", [])}
-        if settings.HOMEBREW_MODEL not in model_ids:
-            raise RuntimeError(f"Model {settings.HOMEBREW_MODEL} is not served by the DGX Spark")
+        if model not in model_ids:
+            raise RuntimeError(f"Model {model} is not served by {name}")
 
     def check_prompt_safety(self, prompt: str) -> tuple[bool, str]:
         """Return (is_safe, reason). Raises on any failure so guardrails fail closed."""
         response = requests.post(
-            f"{settings.HOMEBREW_BASE_URL}/v1/chat/completions",
+            f"{self._base_url}/v1/chat/completions",
             headers=self._headers,
             json={
-                "model": settings.HOMEBREW_MODEL,
+                "model": self._model,
                 "messages": [{"role": "user", "content": _classifier_prompt(prompt)}],
                 "temperature": 0.1,
                 "max_tokens": 100,
@@ -46,6 +50,19 @@ class PromptDefense:
         if "[SAFE]" in text:
             return True, text
         raise ValueError(f"Unexpected classifier output: {text[:200]}")
+
+
+def spark_defense() -> PromptDefense:
+    if not settings.HOMEBREW_BASE_URL:
+        raise RuntimeError("HOMEBREW_BASE_URL is not set")
+    return PromptDefense(settings.HOMEBREW_BASE_URL, settings.HOMEBREW_API_KEY, settings.HOMEBREW_MODEL, "DGX Spark")
+
+
+def openrouter_defense() -> PromptDefense:
+    api_key = os.getenv("OPENROUTER_API_KEY", "")
+    if not api_key:
+        raise RuntimeError("OPENROUTER_API_KEY is not set")
+    return PromptDefense(OPENROUTER_BASE_URL, api_key, settings.FALLBACK_DEFENSE_MODEL, "OpenRouter")
 
 
 def _classifier_prompt(prompt: str) -> str:

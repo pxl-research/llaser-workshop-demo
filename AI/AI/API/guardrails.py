@@ -1,6 +1,8 @@
 import logging
 from typing import List, Optional
 
+import requests
+
 from AI.API import alerts, metrics, services, settings
 from AI.API.schemas import QueryRequest, QueryResponse
 
@@ -32,6 +34,18 @@ def defense_unavailable_response() -> QueryResponse:
     return QueryResponse(answer=DEFENSE_UNAVAILABLE_ANSWER)
 
 
+def _classify_with_failover(question: str) -> tuple[bool, str]:
+    """A network or HTTP failure on the Spark switches the defense to OpenRouter and retries once."""
+    detector = services.get_prompt_defense()
+    try:
+        return detector.check_prompt_safety(question)
+    except requests.RequestException:
+        if services.get_homebrew_backend() != "spark":
+            raise
+        logger.warning("DGX Spark defense failed, switching to OpenRouter", exc_info=True)
+        return services.switch_prompt_defense_to_openrouter().check_prompt_safety(question)
+
+
 def check_homebrew_prompt_defense(request: QueryRequest) -> Optional[QueryResponse]:
     if not settings.USE_HOMEBREW:
         return None
@@ -45,8 +59,7 @@ def check_homebrew_prompt_defense(request: QueryRequest) -> Optional[QueryRespon
 
     logger.debug("Checking prompt with homebrew defense")
     try:
-        detector = services.get_prompt_defense()
-        is_safe, reason = detector.check_prompt_safety(request.question)
+        is_safe, reason = _classify_with_failover(request.question)
     except Exception:
         logger.exception("Homebrew prompt defense failed closed")
         return defense_unavailable_response()

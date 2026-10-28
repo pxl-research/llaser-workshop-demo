@@ -5,7 +5,7 @@
 LLASER is a RAG chat app with two prompt-injection defenses, made by PXL research. You run it on your own laptop with Docker, upload documents, chat with them, attack the app and switch the defenses on and off.
 
 - **NLP defense:** a small classifier model that runs on your laptop.
-- **LLM defense:** a language model on the PXL DGX Spark that checks each question. It is only reachable during the workshop.
+- **LLM defense:** a language model on the PXL DGX Spark that checks each question. It is only reachable during the workshop; when it is not, a model on OpenRouter takes over.
 
 The documents in `corpus/` are synthetic ("FICTIONAL TEST DATA").
 
@@ -74,7 +74,7 @@ All four are on the **Controls** page. They stay changed until the app restarts.
 |---|---|---|
 | System prompt | A confidentiality rule after the documents (`{context}`) | Delete the rule, or move it before `{context}`, and ask the plain requests below again. |
 | Chat model | `meta-llama/llama-3.3-70b-instruct` | Stricter or weaker models refuse or leak differently. The price per 1M tokens is shown; your key has a spending limit. |
-| LLM defense | Off | A language model on the PXL DGX Spark classifies each question as safe or malicious before the chat model sees it. |
+| LLM defense | Off | A language model on the PXL DGX Spark classifies each question as safe or malicious before the chat model sees it. If the Spark is unreachable, a Qwen model on OpenRouter takes over and the status shows "Active (OpenRouter fallback)". |
 | NLP defense | Off | A small classifier on your laptop does the same: faster, less accurate. Move the threshold slider to see the trade-off. |
 
 For a defense: tick it, click "Apply changes", then wait until the status shows Active. `query blocked` means that a defense caught your question. After that, your tab's session stays blocked until you accept or deny the alert on the **Alerts** page, or until you open a new tab.
@@ -113,7 +113,7 @@ Reasoning models (for example `openai/gpt-5-nano`) can use up the answer length 
 ## What is sent where
 
 - Your questions, the retrieved document chunks and the text of uploaded documents go to OpenRouter (chat model, embeddings, reranker). OpenRouter uses zero-data-retention endpoints when the account of the key enforces it.
-- With the LLM defense on, each question also goes to the PXL DGX Spark for classification. Prompt contents are not logged there, and the URL and key only work during the workshop.
+- With the LLM defense on, each question also goes to the PXL DGX Spark for classification. Prompt contents are not logged there, and the URL and key only work during the workshop. If the Spark is unreachable, the question goes to OpenRouter instead, with your OpenRouter key.
 - The NLP defense runs on your laptop.
 - Documents and chat memory stay in a Docker volume on your laptop until you run `docker compose down -v`.
 
@@ -127,7 +127,7 @@ Do not upload confidential documents.
 | Banner "AI system unavailable", or http://127.0.0.1:8080/api/ready shows an error with `OPENROUTER_API_KEY` | The key is missing in `.env`. Add it and run `docker compose up -d`. |
 | Answer `Query processing failed`, or upload fails with `Indexing failed: the embedding or vector store service returned an error` | Wrong OpenRouter key, no credit, or the model is not available. |
 | Page does not load | Run `docker compose ps`. If the backend is not running, run `docker compose up -d`. The frontend recovers by itself. |
-| `query blocked: prompt defense unavailable, try again later` | A defense is on but does not work. LLM defense: the URL or key is wrong (no `/v1` at the end of the URL), or the Spark is offline; switch it off and on, or leave it off. NLP defense: the model is missing. |
+| `query blocked: prompt defense unavailable, try again later` | A defense is on but does not work. LLM defense: the Spark and the OpenRouter fallback both failed, so check `OPENROUTER_API_KEY`; switch the defense off and on, or leave it off. NLP defense: the model is missing. |
 | Controls page: NLP defense "Unavailable", "model not found" | Run `docker compose logs model-init`. `set MODEL_PASSWORD` or `wrong MODEL_PASSWORD`: fix the password in `.env`. Download failed: check the internet connection, or copy the model file from the USB stick into a `models` folder in the repo. Then run `docker compose up -d` and switch the NLP defense off and on. |
 | "Your session is currently blocked" | Go to the Alerts page and accept or deny the alert, or open a new tab. |
 | Upload: "Unsupported document type" | Upload PDF files only. |

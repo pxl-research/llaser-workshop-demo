@@ -8,7 +8,15 @@ import {
 import { ModelSection, SystemPromptSection } from "./ControlSections";
 import "../styles/security-page.css";
 
-function StatusBadge({ status, error }: { status: DefenseStatus; error?: string | null }) {
+function StatusBadge({
+  status,
+  error,
+  fallback = false,
+}: {
+  status: DefenseStatus;
+  error?: string | null;
+  fallback?: boolean;
+}) {
   const labels: Record<DefenseStatus, string> = {
     off: "Off",
     loading: "Loading…",
@@ -23,6 +31,7 @@ function StatusBadge({ status, error }: { status: DefenseStatus; error?: string 
     >
       {status === "loading" && <span className="defense-badge__spinner" />}
       {labels[status]}
+      {status === "ready" && fallback && " (OpenRouter fallback)"}
     </span>
   );
 }
@@ -144,10 +153,15 @@ function SecurityPage() {
               />
               <span className="security-toggle__label">LLM-based defense (Homebrew)</span>
               <span className="security-toggle__desc">
-                Uses a Qwen LLM on the DGX Spark to classify prompts as safe or malicious.
+                Uses a Qwen LLM on the DGX Spark to classify prompts as safe or malicious. When the
+                Spark is unreachable, a Qwen model on OpenRouter takes over.
               </span>
             </label>
-            <StatusBadge status={config.homebrew_status} error={config.homebrew_error} />
+            <StatusBadge
+              status={config.homebrew_status}
+              error={config.homebrew_error}
+              fallback={config.homebrew_backend === "openrouter"}
+            />
           </div>
 
           <div className="defense-row">

@@ -113,6 +113,7 @@ def get_security_config():
         homebrew_status=homebrew_status,
         nlp_defense_status=nlp_status,
         homebrew_error=homebrew_error,
+        homebrew_backend=services.get_homebrew_backend(),
         nlp_defense_error=nlp_error,
         nlp_confidence_threshold=threshold,
         max_upload_size_mb=settings.MAX_UPLOAD_SIZE_BYTES / (1024 * 1024),

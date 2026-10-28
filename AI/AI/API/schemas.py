@@ -75,6 +75,7 @@ class SecurityConfigResponse(BaseModel):
     homebrew_status: str
     nlp_defense_status: str
     homebrew_error: Optional[str] = None
+    homebrew_backend: Optional[Literal["spark", "openrouter"]] = None
     nlp_defense_error: Optional[str] = None
     nlp_confidence_threshold: float
     max_upload_size_mb: float

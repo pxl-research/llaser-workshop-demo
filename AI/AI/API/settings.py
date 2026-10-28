@@ -38,6 +38,9 @@ HOMEBREW_BASE_URL = os.getenv("HOMEBREW_BASE_URL", "").rstrip("/")
 HOMEBREW_API_KEY = os.getenv("HOMEBREW_API_KEY", "")
 HOMEBREW_MODEL = os.getenv("HOMEBREW_MODEL", "Qwen/Qwen3.6-35B-A3B-FP8")
 HOMEBREW_TIMEOUT_SECONDS = float(os.getenv("HOMEBREW_TIMEOUT_SECONDS", "10"))
+# The LLM defense on OpenRouter (with OPENROUTER_API_KEY) when the Spark is not set or not reachable.
+# Not Qwen3.6 on OpenRouter: its reasoning is on by default and can use up the 100-token reply.
+FALLBACK_DEFENSE_MODEL = os.getenv("FALLBACK_DEFENSE_MODEL", "qwen/qwen3-30b-a3b-instruct-2507")
 USE_NLP_DEFENSE = env_flag("USE_NLP_DEFENSE")
 STATIC_CODE_ANALYSIS_VERIFIED = env_flag("STATIC_CODE_ANALYSIS_VERIFIED")
 BACKGROUND_WARMUP = env_flag("BACKGROUND_WARMUP", default=True)

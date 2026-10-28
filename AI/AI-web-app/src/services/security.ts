@@ -9,6 +9,7 @@ export type SecurityConfig = {
   homebrew_status: DefenseStatus;
   nlp_defense_status: DefenseStatus;
   homebrew_error?: string | null;
+  homebrew_backend?: "spark" | "openrouter" | null;
   nlp_defense_error?: string | null;
   nlp_confidence_threshold: number;
   max_upload_size_mb: number;

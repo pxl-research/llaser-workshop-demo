@@ -17,9 +17,9 @@ const securityConfig = {
   static_code_analysis_verified: false,
 };
 
-function renderSecurityPage() {
+function renderSecurityPage(overrides: Record<string, unknown> = {}) {
   const bodies: Record<string, unknown> = {
-    "/api/security-config": securityConfig,
+    "/api/security-config": { ...securityConfig, ...overrides },
     "/api/available-llms": [],
     "/api/current-config": { status: "success", config: { llm: "test/model" } },
     "/api/system-prompt": { prompt: "{context}", default_prompt: "{context}" },
@@ -61,6 +61,19 @@ describe("SecurityPage", () => {
     expect(await screen.findByRole("heading", { name: "Chat Model" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "System Prompt" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Controls" })).toBeInTheDocument();
+  });
+
+  it("shows when the LLM defense runs on the OpenRouter fallback", async () => {
+    renderSecurityPage({ use_homebrew: true, homebrew_status: "ready", homebrew_backend: "openrouter" });
+
+    expect(await screen.findByText("Active (OpenRouter fallback)")).toBeInTheDocument();
+  });
+
+  it("shows a plain Active badge when the LLM defense runs on the Spark", async () => {
+    renderSecurityPage({ use_homebrew: true, homebrew_status: "ready", homebrew_backend: "spark" });
+
+    expect(await screen.findByText("Active")).toBeInTheDocument();
+    expect(screen.queryByText(/OpenRouter fallback/)).not.toBeInTheDocument();
   });
 
   it("does not show the SonarQube verification", async () => {
