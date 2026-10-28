@@ -47,6 +47,10 @@ class FakeSystem:
         self.processed_files.append(file_path)
         return {"status": "success", "chunks": 1}
 
+    def delete_document(self, file_path: str):
+        self.deleted_files = [*getattr(self, "deleted_files", []), file_path]
+        Path(file_path).unlink()
+
 
 def sse_events(response):
     return [
@@ -601,6 +605,58 @@ class ApiTestCase(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status_code, 413)
         self.assertEqual(Path("data/notes.pdf").read_text(), "existing")
         self.assertEqual(sorted(p.name for p in Path("data").iterdir()), ["notes.pdf"])
+
+    async def test_documents_lists_uploaded_files_only(self):
+        Path("data/.llaser_store").mkdir(parents=True)
+        for name in ["b.pdf", "a.pdf", "notes.csv", ".a.pdf.123.part", ".llaser_store/c.pdf"]:
+            Path("data", name).write_text("x")
+
+        response = await self.client.get("/documents")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"documents": ["a.pdf", "b.pdf"]})
+
+    async def test_documents_is_empty_before_the_first_upload(self):
+        response = await self.client.get("/documents")
+
+        self.assertEqual(response.json(), {"documents": []})
+
+    async def test_delete_document_removes_file_through_the_system(self):
+        Path("data").mkdir()
+        Path("data/notes.pdf").write_text("x")
+
+        response = await self.client.delete("/documents/notes.pdf")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["message"], "Deleted notes.pdf.")
+        self.assertEqual(services._system_instance.deleted_files, [str(Path("data/notes.pdf"))])
+        self.assertFalse(Path("data/notes.pdf").exists())
+
+    async def test_delete_unknown_document_returns_404(self):
+        response = await self.client.delete("/documents/missing.pdf")
+
+        self.assertEqual(response.status_code, 404)
+
+    async def test_delete_rejects_unsupported_extension(self):
+        response = await self.client.delete("/documents/notes.csv")
+
+        self.assertEqual(response.status_code, 400)
+
+    async def test_delete_never_leaves_the_upload_dir(self):
+        Path("secret.pdf").write_text("x")
+        Path("data").mkdir()
+
+        response = await self.client.delete("/documents/..%2Fsecret.pdf")
+
+        self.assertEqual(response.status_code, 404)
+        self.assertTrue(Path("secret.pdf").exists())
+
+    async def test_delete_rejects_documents_in_agent_mode(self):
+        settings.SYSTEM_TYPE = "agent"
+
+        response = await self.client.delete("/documents/notes.pdf")
+
+        self.assertEqual(response.status_code, 403)
 
     async def _upload_with_system(self, system):
         services._system_instance = system

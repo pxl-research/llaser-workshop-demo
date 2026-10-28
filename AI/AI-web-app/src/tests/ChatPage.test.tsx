@@ -11,7 +11,12 @@ import "@testing-library/jest-dom/vitest";
 import ChatPage from "../pages/ChatPage";
 import { createLoadingMessage, scrollParentToBottom } from "../pages/chatUtils";
 import { sendMessageToAPI } from "../services/ChatService";
-import { uploadDocument, type UploadDocumentResult } from "../services/DocumentService";
+import {
+  deleteDocument,
+  listDocuments,
+  uploadDocument,
+  type UploadDocumentResult,
+} from "../services/DocumentService";
 
 vi.mock("../services/ChatService", () => ({
   sendMessageToAPI: vi.fn(),
@@ -19,6 +24,8 @@ vi.mock("../services/ChatService", () => ({
 
 vi.mock("../services/DocumentService", () => ({
   uploadDocument: vi.fn(),
+  listDocuments: vi.fn(),
+  deleteDocument: vi.fn(),
 }));
 
 vi.mock("../components/SystemReadinessContext", () => ({
@@ -34,6 +41,8 @@ vi.mock("../components/SystemReadinessContext", () => ({
 
 const mockedSendMessageToAPI = vi.mocked(sendMessageToAPI);
 const mockedUploadDocument = vi.mocked(uploadDocument);
+const mockedListDocuments = vi.mocked(listDocuments);
+const mockedDeleteDocument = vi.mocked(deleteDocument);
 const pickFiles = (...names: string[]) => {
   const input = document.querySelector('input[type="file"]') as HTMLInputElement;
   fireEvent.change(input, { target: { files: names.map((name) => new File(["x"], name, { type: "application/pdf" })) } });
@@ -48,6 +57,7 @@ const answerWith = (...pieces: string[]) =>
 describe("ChatPage Component", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockedListDocuments.mockReset().mockResolvedValue([]);
     cleanup();
   });
 
@@ -270,6 +280,67 @@ describe("ChatPage Component", () => {
     expect(await screen.findByText("✓ Uploaded and indexed b.pdf (3 chunks).")).toBeInTheDocument();
     expect(screen.getByText("✗ Upload failed: a.pdf: Document processing failed.")).toBeInTheDocument();
     expect(mockedUploadDocument).toHaveBeenCalledTimes(2);
+  });
+
+  it("refreshes the document list after an upload", async () => {
+    mockedListDocuments.mockResolvedValueOnce([]).mockResolvedValueOnce(["doc.pdf"]);
+    mockedUploadDocument.mockResolvedValueOnce({ message: "Uploaded and indexed doc.pdf (3 chunks)." });
+
+    render(<ChatPage />);
+    await waitFor(() => expect(mockedListDocuments).toHaveBeenCalledTimes(1));
+    pickFiles("doc.pdf");
+
+    expect(await screen.findByRole("button", { name: "Delete doc.pdf" })).toBeInTheDocument();
+    expect(screen.getByText("Documents (1)")).toBeInTheDocument();
+  });
+
+  it("deletes a document after confirmation and refreshes the list", async () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+    mockedListDocuments.mockResolvedValueOnce(["a.pdf", "b.pdf"]).mockResolvedValueOnce(["b.pdf"]);
+    mockedDeleteDocument.mockResolvedValueOnce({ message: "Deleted a.pdf." });
+
+    try {
+      render(<ChatPage />);
+      fireEvent.click(await screen.findByRole("button", { name: "Delete a.pdf" }));
+
+      expect(confirm).toHaveBeenCalledWith(expect.stringContaining("a.pdf"));
+      expect(await screen.findByText("✓ Deleted a.pdf.")).toBeInTheDocument();
+      expect(mockedDeleteDocument).toHaveBeenCalledWith("a.pdf");
+      await waitFor(() => expect(screen.queryByRole("button", { name: "Delete a.pdf" })).not.toBeInTheDocument());
+      expect(screen.getByRole("button", { name: "Delete b.pdf" })).toBeInTheDocument();
+    } finally {
+      confirm.mockRestore();
+    }
+  });
+
+  it("keeps the document when the confirmation is cancelled", async () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    mockedListDocuments.mockResolvedValueOnce(["a.pdf"]);
+
+    try {
+      render(<ChatPage />);
+      fireEvent.click(await screen.findByRole("button", { name: "Delete a.pdf" }));
+
+      expect(confirm).toHaveBeenCalled();
+      expect(mockedDeleteDocument).not.toHaveBeenCalled();
+    } finally {
+      confirm.mockRestore();
+    }
+  });
+
+  it("shows a failed delete in the chat", async () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+    mockedListDocuments.mockResolvedValue(["a.pdf"]);
+    mockedDeleteDocument.mockRejectedValueOnce(new Error("Document not found"));
+
+    try {
+      render(<ChatPage />);
+      fireEvent.click(await screen.findByRole("button", { name: "Delete a.pdf" }));
+
+      expect(await screen.findByText("✗ Delete failed: a.pdf: Document not found")).toBeInTheDocument();
+    } finally {
+      confirm.mockRestore();
+    }
   });
 });
 

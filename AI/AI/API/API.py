@@ -457,6 +457,40 @@ async def upload_document(
         raise HTTPException(status_code=500, detail="Failed to upload file")
 
 
+@app.get("/documents")
+def list_documents():
+    """List the uploaded documents, by filename."""
+    upload_dir = settings.UPLOAD_DIR
+    if not upload_dir.is_dir():
+        return {"documents": []}
+    # Hidden .part temp files and the store dir never match: .part is not an allowed extension, the store is a dir.
+    allowed = settings.allowed_document_extensions()
+    return {"documents": sorted(p.name for p in upload_dir.iterdir() if p.is_file() and p.suffix.lower() in allowed)}
+
+
+@app.delete("/documents/{filename}")
+async def delete_document(filename: str):
+    """Delete an uploaded document from the data folder and the vector store."""
+    logger.info("Document delete requested - Filename: %s", filename)
+
+    if settings.SYSTEM_TYPE == "agent":
+        raise HTTPException(status_code=403, detail="Cannot delete documents in Agent mode")
+
+    file_path = settings.UPLOAD_DIR / normalize_upload_filename(filename)
+    async with _upload_lock:
+        if not file_path.is_file():
+            raise HTTPException(status_code=404, detail="Document not found")
+        system = _require_ready_system()
+        try:
+            await run_in_threadpool(system.delete_document, str(file_path))
+        except Exception:
+            logger.exception("Document delete failed")
+            raise HTTPException(status_code=500, detail="Failed to delete document")
+
+    logger.info("Document deleted - Filename: %s", file_path.name)
+    return {"status": "success", "filename": file_path.name, "message": f"Deleted {file_path.name}."}
+
+
 @app.get("/prompt-alerts")
 def get_prompt_alerts():
     """Get all malicious prompt alerts."""

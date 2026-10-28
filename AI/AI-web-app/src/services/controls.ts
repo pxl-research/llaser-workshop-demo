@@ -10,7 +10,7 @@ export type LlmModel = {
   completion_price: string | null;
 };
 
-const errorDetail = async (response: Response, fallback: string) => {
+export const errorDetail = async (response: Response, fallback: string) => {
   try {
     const body = (await response.json()) as { detail?: unknown };
     if (typeof body.detail === "string") return body.detail;

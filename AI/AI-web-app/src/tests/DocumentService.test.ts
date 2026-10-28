@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { uploadDocument } from "../services/DocumentService";
+import { deleteDocument, listDocuments, uploadDocument } from "../services/DocumentService";
 
 class FakeXhr {
   static readonly created: FakeXhr[] = [];
@@ -83,5 +83,35 @@ describe("uploadDocument", () => {
     xhr.onerror?.();
 
     await expect(done).rejects.toThrow("Upload failed: network error");
+  });
+});
+
+describe("listDocuments and deleteDocument", () => {
+  const mockFetch = vi.fn();
+
+  beforeEach(() => {
+    vi.stubEnv("VITE_API_URL", "http://localhost:8080/");
+    mockFetch.mockReset();
+    vi.stubGlobal("fetch", mockFetch);
+  });
+
+  it("lists the document names", async () => {
+    mockFetch.mockResolvedValueOnce(new Response(JSON.stringify({ documents: ["a.pdf"] })));
+
+    await expect(listDocuments()).resolves.toEqual(["a.pdf"]);
+    expect(mockFetch).toHaveBeenCalledWith("http://localhost:8080/api/documents", undefined);
+  });
+
+  it("deletes a document by its encoded name", async () => {
+    mockFetch.mockResolvedValueOnce(new Response(JSON.stringify({ message: "Deleted my doc.pdf." })));
+
+    await expect(deleteDocument("my doc.pdf")).resolves.toMatchObject({ message: "Deleted my doc.pdf." });
+    expect(mockFetch).toHaveBeenCalledWith("http://localhost:8080/api/documents/my%20doc.pdf", { method: "DELETE" });
+  });
+
+  it("rejects with the JSON detail of an error response", async () => {
+    mockFetch.mockResolvedValueOnce(new Response(JSON.stringify({ detail: "Document not found" }), { status: 404 }));
+
+    await expect(deleteDocument("a.pdf")).rejects.toThrow("Document not found");
   });
 });

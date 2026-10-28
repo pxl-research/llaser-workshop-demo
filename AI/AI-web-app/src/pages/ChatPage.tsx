@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ChangeEvent, FormEvent, KeyboardEvent } from "react";
 import { sendMessageToAPI } from "../services/ChatService";
-import { uploadDocument } from "../services/DocumentService";
+import { deleteDocument, listDocuments, uploadDocument } from "../services/DocumentService";
 import { fetchSecurityConfig, type DefenseStatus } from "../services/security";
 import { useSystemReadiness } from "../components/SystemReadinessContext";
 import ReactMarkdown from "react-markdown";
@@ -58,6 +58,8 @@ function ChatPage() {
   const [message, setMessage] = useState<string>("");
   const [chat, setChat] = useState<Message[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [documents, setDocuments] = useState<string[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const [defenses, setDefenses] = useState<{ homebrew: DefenseStatus; nlp: DefenseStatus }>({
@@ -80,6 +82,13 @@ function ChatPage() {
     const id = window.setInterval(loadDefenseStatus, 10000);
     return () => window.clearInterval(id);
   }, [loadDefenseStatus]);
+  const loadDocuments = useCallback(() => {
+    listDocuments().then(setDocuments).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (isReady) loadDocuments();
+  }, [isReady, loadDocuments]);
   // Ticks the elapsed time in the upload bubble.
   useEffect(() => {
     if (!isUploading) return;
@@ -87,7 +96,7 @@ function ChatPage() {
     return () => window.clearInterval(id);
   }, [isUploading]);
 
-  const canInteract = isReady && !isUploading;
+  const canInteract = isReady && !isUploading && !isDeleting;
   // Uploads and new questions wait for the answer: both append to the chat the stream is writing into.
   const canSend = canInteract && !isStreaming;
   const inputPlaceholder = isReady
@@ -145,6 +154,23 @@ function ChatPage() {
       }
     } finally {
       setIsUploading(false);
+      loadDocuments();
+    }
+  };
+
+  const handleDelete = async (name: string) => {
+    if (!canSend || !window.confirm(`Delete ${name}? LLASER will no longer use it to answer.`)) return;
+
+    setIsDeleting(true);
+    try {
+      const result = await deleteDocument(name);
+      setChat((prev) => [...prev, { text: `✓ ${result.message}`, sender: "response" }]);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      setChat((prev) => [...prev, { text: `✗ Delete failed: ${name}: ${detail}`, sender: "response" }]);
+    } finally {
+      setIsDeleting(false);
+      loadDocuments();
     }
   };
 
@@ -193,6 +219,29 @@ function ChatPage() {
         )}
 
         <div className={`chat-card ${hasMessages ? "chat-card--active" : ""}`}>
+          {documents.length > 0 && (
+            <details className="chat-documents">
+              <summary>Documents ({documents.length})</summary>
+              <ul>
+                {documents.map((name) => (
+                  <li key={name}>
+                    <span>{name}</span>
+                    <button
+                      aria-label={`Delete ${name}`}
+                      className="chat-document-delete"
+                      disabled={!canSend}
+                      type="button"
+                      onClick={() => void handleDelete(name)}
+                      title={canSend ? "Delete document" : "Wait until LLASER is done"}
+                    >
+                      ✕
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+
           <div className="chat-scroll-area">
             {chat.map((msg, index) => (
               <div

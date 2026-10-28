@@ -1,8 +1,21 @@
 import { apiUrl } from "./api";
+import { errorDetail as responseErrorDetail } from "./controls";
 
 export type UploadDocumentResult = {
   message: string;
 };
+
+const fetchJson = async <T>(path: string, init: RequestInit | undefined, fallback: string): Promise<T> => {
+  const response = await fetch(apiUrl(path), init);
+  if (!response.ok) throw new Error(await responseErrorDetail(response, fallback));
+  return (await response.json()) as T;
+};
+
+export const listDocuments = async () =>
+  (await fetchJson<{ documents: string[] }>("api/documents", undefined, "Failed to load documents")).documents;
+
+export const deleteDocument = (name: string) =>
+  fetchJson<{ message: string }>(`api/documents/${encodeURIComponent(name)}`, { method: "DELETE" }, "Delete failed");
 
 const errorDetail = (xhr: XMLHttpRequest) => {
   try {

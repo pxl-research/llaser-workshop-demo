@@ -66,5 +66,5 @@ CORS_ORIGINS = [
     ]
     if origin
 ]
-CORS_METHODS = ["GET", "POST", "OPTIONS"]
+CORS_METHODS = ["GET", "POST", "DELETE", "OPTIONS"]
 CORS_HEADERS = ["Authorization", "Content-Type"]

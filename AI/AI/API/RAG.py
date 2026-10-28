@@ -437,6 +437,11 @@ class RAG:
             logger.exception("Error processing document %s", Path(file_path).name)
             return self._document_error(failure)
 
+    def delete_document(self, file_path: str) -> None:
+        """Remove a document from disk and drop its chunks."""
+        Path(file_path).unlink(missing_ok=True)
+        self._prune_to_disk()
+
     @staticmethod
     def _document_error(user_message: str) -> dict:
         """Error result carrying only a curated message, never raw exception text."""

@@ -651,6 +651,22 @@ class PerModelCollectionTests(unittest.TestCase):
 
         self.assertEqual(rag.vector_store.collection.count(), 0)
 
+    def test_delete_document_removes_the_file_and_only_its_chunks(self):
+        kept = Path(self.tmp.name) / "kept.pdf"
+        gone = Path(self.tmp.name) / "gone.pdf"
+        kept.write_text("kept bytes")
+        gone.write_text("gone bytes")
+        rag = self.make_rag(MODEL_A)
+        self.upload(rag, kept)
+        self.upload(rag, gone)
+
+        with patch.object(RAG_MODULE.settings, "UPLOAD_DIR", Path(self.tmp.name)):
+            rag.delete_document(str(gone))
+
+        self.assertFalse(gone.exists())
+        hashes = {meta["file_hash"] for _doc, meta in rag.vector_store.collection.rows.values()}
+        self.assertEqual(hashes, {VECTOR_STORES.compute_hash(str(kept))})
+
     def test_prune_keeps_chunks_when_a_source_root_is_missing(self):
         pdf = Path(self.tmp.name) / "doc.pdf"
         pdf.write_text("doc")
