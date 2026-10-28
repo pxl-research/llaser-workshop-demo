@@ -15,7 +15,6 @@ def create_malicious_prompt_alert(
     risk_level: str,
     threat_types: List[str],
     session_id: Optional[str] = None,
-    user_ip: Optional[str] = None,
 ) -> str:
     """Create a new alert for a malicious prompt and block the session."""
     alert_id = str(uuid.uuid4())
@@ -25,7 +24,6 @@ def create_malicious_prompt_alert(
         "timestamp": datetime.utcnow().isoformat(),
         "riskLevel": risk_level,
         "threatTypes": threat_types,
-        "userIP": user_ip,
         "sessionID": session_id,
         "status": "pending",
     }

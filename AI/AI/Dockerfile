@@ -17,9 +17,6 @@ COPY Chunking /app/AI/Chunking
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONPATH=/app:/usr/local/lib/python3.11/site-packages \
-    DEPLOYMENT_ENV=local \
-    SYSTEM_TYPE=rag \
-    DOCUMENT_LOADER=pymupdf4llm \
     ANONYMIZED_TELEMETRY=False
 USER nonroot
 EXPOSE 8080

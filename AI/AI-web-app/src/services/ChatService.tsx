@@ -1,4 +1,3 @@
-import { apiUrl } from "./api";
 
 // Generate or retrieve session ID
 const getSessionId = (): string => {
@@ -59,7 +58,7 @@ export const sendMessageToAPI = async (
   try {
     const sessionId = getSessionId();
     
-    const response = await fetch(apiUrl("api/query"), {
+    const response = await fetch("/api/query", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

@@ -1,13 +1,11 @@
-import { apiUrl } from "./api";
 
-export type ComponentState = "pending" | "loading" | "ready" | "skipped" | "error";
+type ComponentState = "pending" | "loading" | "ready";
 
-export type ReadinessStatus = "pending" | "loading" | "ready" | "error";
+type ReadinessStatus = "pending" | "loading" | "ready" | "error";
 
-export type ReadinessComponent = {
+type ReadinessComponent = {
   state: ComponentState;
   model?: string;
-  message?: string;
 };
 
 export type ReadinessResponse = {
@@ -21,11 +19,10 @@ const COMPONENT_LABELS: Record<string, string> = {
   reranker: "Reranker",
   vector_store: "Document index",
   llm: "Language model",
-  system: "AI system",
 };
 
 export const fetchReadiness = async (): Promise<ReadinessResponse> => {
-  const response = await fetch(apiUrl("api/ready"));
+  const response = await fetch("/api/ready");
 
   if (!response.ok) {
     throw new Error(`Readiness check failed (${response.status})`);

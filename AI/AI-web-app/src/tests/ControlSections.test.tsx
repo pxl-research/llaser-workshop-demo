@@ -8,7 +8,7 @@ const ok = (body: unknown) => ({ ok: true, json: async () => body }) as Response
 
 const routes: Record<string, unknown> = {
   "/api/system-prompt": { prompt: "Active {context}", default_prompt: "Default {context}" },
-  "/api/current-config": { status: "success", config: { llm: "cheap/model" } },
+  "/api/llm": { llm: "cheap/model" },
   "/api/available-llms": [
     { id: "pricey/model", name: "Pricey", prompt_price: "0.000003", completion_price: "0.000015" },
     { id: "cheap/model", name: "Cheap", prompt_price: "0.0000001", completion_price: "0.0000003" },
@@ -21,7 +21,7 @@ function serve(url: string, init?: RequestInit) {
     const prompt = JSON.parse(String(init.body)).prompt ?? "Default {context}";
     return ok({ prompt, default_prompt: "Default {context}" });
   }
-  return ok({ status: "success" });
+  return ok(JSON.parse(String(init.body)));
 }
 
 describe("control sections", () => {
@@ -45,7 +45,7 @@ describe("control sections", () => {
     );
   });
 
-  it("switches the model with a POST to update-config", async () => {
+  it("switches the model with a POST to /api/llm", async () => {
     render(<ModelSection />);
     await waitFor(() => expect(screen.getByText(/Current:/).textContent).toContain("($0.10"));
 
@@ -54,8 +54,8 @@ describe("control sections", () => {
 
     await waitFor(() => expect(screen.getByText(/Current:/).textContent).toContain("pricey/model"));
     const post = mockFetch.mock.calls.find(([, init]) => init?.method === "POST");
-    expect(post?.[0]).toBe("/api/update-config");
-    expect(JSON.parse(post?.[1].body)).toEqual({ config_type: "llm", value: "pricey/model" });
+    expect(post?.[0]).toBe("/api/llm");
+    expect(JSON.parse(post?.[1].body)).toEqual({ llm: "pricey/model" });
   });
 
   it("filters the model table by search and preselects the current model", async () => {

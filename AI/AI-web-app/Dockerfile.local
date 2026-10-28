@@ -6,7 +6,7 @@ WORKDIR /app
 COPY AI/AI-web-app/package.json AI/AI-web-app/package-lock.json ./
 RUN npm ci --ignore-scripts
 COPY AI/AI-web-app/ .
-# No VITE_API_URL and no AI_NAME: the app calls /api/..., which nginx proxies to the backend.
+# The app calls /api/..., which nginx proxies to the backend.
 RUN npm run build
 
 FROM nginxinc/nginx-unprivileged:1.30.6-alpine

@@ -114,46 +114,6 @@
   margin-top: 4px;
 }
 
-.security-params {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 20px;
-}
-
-.security-param {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.security-param__label {
-  font-size: 13px;
-  font-weight: 500;
-  color: #374151;
-}
-
-.security-param input[type="number"] {
-  width: 100%;
-  height: 36px;
-  padding: 0 10px;
-  font-size: 14px;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
-  background: #fff;
-  color: #1f2937;
-}
-
-.security-param input[type="number"]:focus {
-  outline: none;
-  border-color: #2563eb;
-  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
-}
-
-.security-param__hint {
-  font-size: 11px;
-  color: #9ca3af;
-}
-
 /* ===== DEFENSE ROW ===== */
 
 .defense-row {

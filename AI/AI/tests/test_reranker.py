@@ -12,7 +12,6 @@ if str(PACKAGE_PARENT) not in sys.path:
     sys.path.insert(0, str(PACKAGE_PARENT))
 
 from AI.Chunking.Reranker import OpenRouterReranker
-from AI.API import metrics, rerankers
 
 
 def client_returning(status, body, seen=None):
@@ -61,7 +60,6 @@ class OpenRouterRerankerTests(unittest.TestCase):
         r = OpenRouterReranker(
             "qwen/qwen3-reranker-8b", api_key="k", client=client_returning(503, {"error": "x"}), sleep=lambda s: None
         )
-        before = metrics.rerank_fallback._value.get()
 
         with self.assertLogs("AI.Chunking.Reranker", level="WARNING") as logs:
             out = r.rerank("q", ["a", "b", "c"], top_n=2)
@@ -69,15 +67,12 @@ class OpenRouterRerankerTests(unittest.TestCase):
         self.assertEqual(out, ["a", "b"])
         self.assertIn("Rerank via OpenRouter failed", logs.output[0])
         self.assertIn("503", logs.output[0])
-        self.assertEqual(metrics.rerank_fallback._value.get(), before + 1)
 
     def _assert_falls_back(self, client):
         r = OpenRouterReranker("qwen/qwen3-reranker-8b", api_key="k", client=client, sleep=lambda s: None)
-        before = metrics.rerank_fallback._value.get()
         with self.assertLogs("AI.Chunking.Reranker", level="WARNING"):
             out = r.rerank("q", ["a", "b", "c"], top_n=2)
         self.assertEqual(out, ["a", "b"])
-        self.assertEqual(metrics.rerank_fallback._value.get(), before + 1)
 
     def test_timeout_falls_back(self):
         def handler(request):
@@ -113,7 +108,6 @@ class OpenRouterRerankerTests(unittest.TestCase):
     def test_retries_once_on_503_then_succeeds(self):
         seen = []
         r, sleeps = self._retry_reranker([httpx.Response(503), httpx.Response(200, json=GOOD_BODY)], seen)
-        before = metrics.rerank_fallback._value.get()
 
         with self.assertLogs("AI.Chunking.Reranker", level="INFO") as logs:
             out = r.rerank("q", ["a", "b", "c"], top_n=2)
@@ -121,14 +115,12 @@ class OpenRouterRerankerTests(unittest.TestCase):
         self.assertEqual(out, ["c", "a"])
         self.assertEqual(len(seen), 2)
         self.assertEqual(sleeps, [0.5])
-        self.assertEqual(metrics.rerank_fallback._value.get(), before)
         self.assertEqual([rec for rec in logs.records if rec.levelname == "WARNING"], [])
         self.assertEqual([rec.levelname for rec in logs.records], ["INFO"])
 
     def test_two_transient_failures_fall_back_once(self):
         seen = []
         r, sleeps = self._retry_reranker([httpx.Response(503), httpx.Response(503)], seen)
-        before = metrics.rerank_fallback._value.get()
 
         with self.assertLogs("AI.Chunking.Reranker", level="INFO") as logs:
             out = r.rerank("q", ["a", "b", "c"], top_n=2)
@@ -137,20 +129,17 @@ class OpenRouterRerankerTests(unittest.TestCase):
         self.assertEqual(len(seen), 2)
         self.assertEqual(len(sleeps), 1)
         self.assertEqual(len([rec for rec in logs.records if rec.levelname == "WARNING"]), 1)
-        self.assertEqual(metrics.rerank_fallback._value.get(), before + 1)
 
     def test_non_transient_status_is_not_retried(self):
         for status in (400, 401, 402, 403, 404):
             with self.subTest(status=status):
                 seen = []
                 r, sleeps = self._retry_reranker([httpx.Response(status)], seen)
-                before = metrics.rerank_fallback._value.get()
                 with self.assertLogs("AI.Chunking.Reranker", level="WARNING"):
                     out = r.rerank("q", ["a", "b", "c"], top_n=2)
                 self.assertEqual(out, ["a", "b"])
                 self.assertEqual(len(seen), 1)
                 self.assertEqual(sleeps, [])
-                self.assertEqual(metrics.rerank_fallback._value.get(), before + 1)
 
     def test_retry_after_seconds_is_honored(self):
         r, sleeps = self._retry_reranker(
@@ -187,26 +176,13 @@ class OpenRouterRerankerTests(unittest.TestCase):
     def test_empty_results_are_not_retried(self):
         seen = []
         r, sleeps = self._retry_reranker([httpx.Response(200, json={"results": []})], seen)
-        before = metrics.rerank_fallback._value.get()
         with self.assertLogs("AI.Chunking.Reranker", level="WARNING"):
             out = r.rerank("q", ["a", "b", "c"], top_n=2)
         self.assertEqual(out, ["a", "b"])
         self.assertEqual(len(seen), 1)
         self.assertEqual(sleeps, [])
-        self.assertEqual(metrics.rerank_fallback._value.get(), before + 1)
 
     def test_missing_key_raises(self):
         with patch.dict(os.environ, {"OPENROUTER_API_KEY": ""}, clear=False):
             with self.assertRaisesRegex(RuntimeError, "OPENROUTER_API_KEY"):
                 OpenRouterReranker("qwen/qwen3-reranker-8b")
-
-
-class RerankerFactoryTests(unittest.TestCase):
-    def test_catalog_and_default(self):
-        self.assertEqual([r["name"] for r in rerankers.AVAILABLE_RERANKERS], ["qwen/qwen3-reranker-8b"])
-        self.assertEqual(rerankers.DEFAULT_RERANKER, "qwen/qwen3-reranker-8b")
-
-    def test_unknown_raises(self):
-        for name in ("BAAI bge-reranker", "Colbert", ""):
-            with self.assertRaises(ValueError):
-                rerankers.create_reranker_model(name)

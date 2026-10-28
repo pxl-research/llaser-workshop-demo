@@ -1,27 +1,22 @@
 import asyncio
 import json
 import logging
-import os
 from contextlib import asynccontextmanager
 
 import requests
-import uvicorn
-from fastapi import FastAPI, File, HTTPException, Response, UploadFile
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.concurrency import run_in_threadpool
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
-from AI.API import alerts, documents, embeddings, guardrails, metrics, readiness, rerankers, services, settings
+from AI.API import alerts, documents, guardrails, readiness, services, settings
 from AI.API.exceptions import DocumentProcessingError, SystemNotReadyError
 from AI.API.schemas import (
     AlertActionRequest,
-    ConfigUpdateRequest,
+    LlmUpdateRequest,
     QueryRequest,
     ReadinessResponse,
     SecurityConfigResponse,
     SecurityConfigUpdateRequest,
-    SystemInfoResponse,
     SystemPromptResponse,
     SystemPromptUpdateRequest,
 )
@@ -57,13 +52,6 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="RAG API", version="1.0", lifespan=lifespan)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
-    allow_credentials=True,
-    allow_methods=settings.CORS_METHODS,
-    allow_headers=settings.CORS_HEADERS,
-)
 
 
 @app.get("/health")
@@ -74,15 +62,8 @@ def health_check():
 
 @app.get("/ready", response_model=ReadinessResponse)
 def get_readiness():
-    """Return model-loading progress for the configured AI system."""
-    try:
-        return readiness.readiness.to_dict()
-    except Exception:
-        logger.exception("Failed to build readiness payload")
-        return {
-            "status": "loading",
-            "components": {},
-        }
+    """Return model-loading progress for the AI system."""
+    return readiness.readiness.to_dict()
 
 
 def _require_ready_system():
@@ -109,16 +90,12 @@ def get_security_config():
     return SecurityConfigResponse(
         use_homebrew=settings.USE_HOMEBREW,
         use_nlp_defense=settings.USE_NLP_DEFENSE,
-        static_code_analysis_verified=settings.STATIC_CODE_ANALYSIS_VERIFIED,
         homebrew_status=homebrew_status,
         nlp_defense_status=nlp_status,
         homebrew_error=homebrew_error,
         homebrew_backend=services.get_homebrew_backend(),
         nlp_defense_error=nlp_error,
         nlp_confidence_threshold=threshold,
-        max_upload_size_mb=settings.MAX_UPLOAD_SIZE_BYTES / (1024 * 1024),
-        max_output_tokens=settings.RAG_MAX_OUTPUT_TOKENS,
-        provider_timeout_seconds=settings.PROVIDER_TIMEOUT_SECONDS,
     )
 
 
@@ -152,15 +129,6 @@ def update_security_config(request: SecurityConfigUpdateRequest):
         except Exception:
             logger.warning("Could not update NLP threshold: detector not available")
 
-    if request.max_upload_size_mb is not None:
-        settings.MAX_UPLOAD_SIZE_BYTES = int(request.max_upload_size_mb * 1024 * 1024)
-
-    if request.max_output_tokens is not None:
-        settings.RAG_MAX_OUTPUT_TOKENS = request.max_output_tokens
-
-    if request.provider_timeout_seconds is not None:
-        settings.PROVIDER_TIMEOUT_SECONDS = request.provider_timeout_seconds
-
     return get_security_config()
 
 
@@ -184,19 +152,6 @@ def update_system_prompt(request: SystemPromptUpdateRequest):
     settings.SYSTEM_PROMPT = prompt
     logger.info("System prompt %s", "reset to default" if request.prompt is None else "updated")
     return get_system_prompt()
-
-
-@app.get("/system-info", response_model=SystemInfoResponse)
-def get_system_info():
-    """Return current system type."""
-    logger.info("System info requested - Type: %s", settings.SYSTEM_TYPE)
-    return SystemInfoResponse(system_type=settings.SYSTEM_TYPE)
-
-
-@app.get("/metrics")
-def get_metrics():
-    logger.debug("Metrics requested")
-    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
 @app.get("/available-llms")
@@ -243,56 +198,19 @@ def get_all_llms():
     return result
 
 
-def _env_fallback_config() -> dict:
-    return {
-        "llm": os.getenv("LLM", ""),
-        "embedding_model": os.getenv("EMBEDDING_MODEL", ""),
-        "reranker": os.getenv("RERANKER", ""),
-    }
+@app.get("/llm")
+def get_llm():
+    """The chat model in use."""
+    return {"llm": settings.LLM}
 
 
-@app.get("/current-config")
-def get_current_config():
-    """Get the current model configuration."""
-    logger.info("Current config requested")
-    try:
-        system = _require_ready_system()
-        config = {}
-
-        if hasattr(system, "get_current_llm"):
-            config["llm"] = system.get_current_llm()
-        if hasattr(system, "get_current_embedding_model"):
-            config["embedding_model"] = system.get_current_embedding_model()
-        if hasattr(system, "get_current_reranker_model"):
-            config["reranker"] = system.get_current_reranker_model()
-
-        if not config and hasattr(system, "get_current_config"):
-            config = system.get_current_config()
-
-        logger.debug("Current config: %s", config)
-        return {"status": "success", "config": config}
-    except HTTPException as exc:
-        if exc.status_code != 503:
-            raise
-        logger.debug("System not ready; returning environment fallback config")
-        return {"status": "loading", "config": _env_fallback_config()}
-    except Exception:
-        logger.exception("Failed to get current config")
-        return {"status": "error", "message": "Failed to get current config", "config": _env_fallback_config()}
-
-
-@app.get("/available-embeddings")
-def get_available_embeddings():
-    """Return list of available embedding models."""
-    logger.debug("Available embeddings requested")
-    return embeddings.AVAILABLE_EMBEDDINGS
-
-
-@app.get("/available-rerankers")
-def get_available_rerankers():
-    """Return list of available reranker models."""
-    logger.debug("Available rerankers requested")
-    return rerankers.AVAILABLE_RERANKERS
+@app.post("/llm")
+def update_llm(request: LlmUpdateRequest):
+    """Switch the chat model (runtime only)."""
+    settings.LLM = request.llm
+    readiness.readiness.set_component_ready("llm", model=request.llm)
+    logger.info("Chat model set to %s", request.llm)
+    return get_llm()
 
 
 def _sse(payload: dict) -> str:
@@ -323,9 +241,7 @@ def _stream_answer(system, request: QueryRequest):
         yield _sse({"error": "Query processing failed"})
         return
 
-    run_total = usage.get("total_tokens", 0)
-    metrics.tokens_used.inc(run_total)
-    logger.info("Query processed successfully - Tokens used: %s", run_total)
+    logger.info("Query processed successfully - Tokens used: %s", usage.get("total_tokens", 0))
 
 
 @app.post("/query")
@@ -344,7 +260,6 @@ def query_rag(request: QueryRequest):
             "Please wait for the alert to be reviewed on the Alerts page."
         })]))
 
-    metrics.total_queries.inc()
     blocked_response = guardrails.check_prompt_defenses(request)
     if blocked_response:
         return _event_stream(iter([_sse({"delta": blocked_response.answer})]))
@@ -354,60 +269,6 @@ def query_rag(request: QueryRequest):
     return _event_stream(_stream_answer(system, request))
 
 
-@app.post("/update-config")
-def update_configuration(request: ConfigUpdateRequest):
-    """Update model configuration (LLM, embedding, reranker)."""
-    logger.info("Update config requested - Type: %s", request.config_type)
-    system = _require_ready_system()
-
-    component_map = {"embedding": "embedding", "reranker": "reranker", "llm": "llm"}
-    component_name = component_map.get(request.config_type)
-
-    try:
-        if component_name:
-            readiness.readiness.set_component_loading(component_name, model=request.value)
-
-        if request.config_type == "llm":
-            result = system.update_llm(request.value)
-        elif request.config_type == "embedding":
-            result = system.update_embedding_model(request.value)
-        elif request.config_type == "reranker":
-            if not hasattr(system, "update_reranker"):
-                raise HTTPException(status_code=400, detail="Reranker updates only available in RAG mode")
-            result = system.update_reranker(request.value)
-        else:
-            raise HTTPException(status_code=400, detail=f"Unsupported config type: {request.config_type}")
-
-        if component_name:
-            readiness.readiness.set_component_ready(component_name, model=request.value)
-
-        message = result.get("message")
-        if result.get("status") == "error":
-            # The message can carry exception text: log it, never return it
-            logger.error("Config update failed - Type: %s - %s", request.config_type, message)
-            message = "Configuration update failed"
-        else:
-            logger.info("Config update successful - Type: %s", request.config_type)
-        return {
-            "status": result.get("status"),
-            "message": message,
-            "config_type": request.config_type,
-            "value": request.value,
-            "documents_reembedded": result.get("documents_reembedded"),
-            "chunks_reembedded": result.get("chunks_reembedded"),
-            "reranker_updated": result.get("reranker_updated"),
-        }
-    except HTTPException:
-        if component_name:
-            readiness.readiness.set_component_ready(component_name)
-        raise
-    except Exception:
-        if component_name:
-            readiness.readiness.set_component_error(component_name, "Configuration update failed")
-        logger.exception("Configuration update failed")
-        raise HTTPException(status_code=500, detail="Configuration update failed")
-
-
 @app.post("/upload-document")
 async def upload_document(
     file: UploadFile = File(...),
@@ -415,9 +276,6 @@ async def upload_document(
     """Upload a document to the data folder and index it in the vector store."""
     logger.info("Document upload requested - Filename: %s", file.filename)
 
-    if settings.SYSTEM_TYPE == "agent":
-        logger.warning("Document upload attempted in Agent mode - request blocked")
-        raise HTTPException(status_code=403, detail="Cannot upload documents in Agent mode")
     if not file.filename:
         logger.error("Document upload failed - No file provided")
         raise HTTPException(status_code=400, detail="No file provided")
@@ -431,23 +289,12 @@ async def upload_document(
         async with _upload_lock:
             uploaded_size = await save_upload_file(file, uploaded_file_path)
 
-            system = _require_ready_system()
-            if hasattr(system, "process_and_add_document"):
-                return await run_in_threadpool(
-                    documents.process_uploaded_documents,
-                    system=system,
-                    uploaded_file_path=uploaded_file_path,
-                    uploaded_size=uploaded_size,
-                )
-
-        logger.info("Document upload successful (no processing) - Filename: %s", uploaded_file_path.name)
-        return {
-            "status": "success",
-            "filename": uploaded_file_path.name,
-            "size": uploaded_size,
-            "path": str(uploaded_file_path),
-            "message": "File saved to data folder (document processing capabilities not found on current system)",
-        }
+            return await run_in_threadpool(
+                documents.process_uploaded_documents,
+                system=_require_ready_system(),
+                uploaded_file_path=uploaded_file_path,
+                uploaded_size=uploaded_size,
+            )
     except HTTPException:
         raise
     except DocumentProcessingError as exc:
@@ -465,17 +312,15 @@ def list_documents():
     if not upload_dir.is_dir():
         return {"documents": []}
     # Hidden .part temp files and the store dir never match: .part is not an allowed extension, the store is a dir.
-    allowed = settings.allowed_document_extensions()
-    return {"documents": sorted(p.name for p in upload_dir.iterdir() if p.is_file() and p.suffix.lower() in allowed)}
+    return {"documents": sorted(
+        p.name for p in upload_dir.iterdir() if p.is_file() and p.suffix.lower() in settings.DOCUMENT_EXTENSIONS
+    )}
 
 
 @app.delete("/documents/{filename}")
 async def delete_document(filename: str):
     """Delete an uploaded document from the data folder and the vector store."""
     logger.info("Document delete requested - Filename: %s", filename)
-
-    if settings.SYSTEM_TYPE == "agent":
-        raise HTTPException(status_code=403, detail="Cannot delete documents in Agent mode")
 
     file_path = settings.UPLOAD_DIR / normalize_upload_filename(filename)
     async with _upload_lock:
@@ -518,21 +363,5 @@ def process_prompt_alert(alert_id: str, action_request: AlertActionRequest):
         "alert_id": alert_id,
         "action": action_request.action,
         "alert_status": alert["status"],
-        "message": f"Alert {action_request.action}ed successfully",
+        "message": f"Alert {alert['status']}",
     }
-
-
-@app.get("/prompt-alerts/{alert_id}")
-def get_prompt_alert(alert_id: str):
-    """Get a specific alert by ID."""
-    if alert_id not in alerts.alerts_store:
-        logger.error("Alert %s not found", alert_id)
-        raise HTTPException(status_code=404, detail=f"Alert {alert_id} not found")
-
-    return alerts.alerts_store[alert_id]
-
-
-if __name__ == "__main__":
-    logger.info("Starting API server...")
-    # Local dev only; the Docker CMD binds 0.0.0.0 inside the container.
-    uvicorn.run("api:app", host="127.0.0.1", port=8080, reload=True)

@@ -78,9 +78,8 @@ class MLPromptSafetyDetectorTests(unittest.TestCase):
         result = self.detect([[0.0, 2.0]])
 
         self.assertTrue(result["is_malicious"])
-        self.assertEqual(result["classification"], "Malicious")
         self.assertEqual(result["risk_level"], "Critical")
-        self.assertAlmostEqual(result["malicious_probability"], 0.8808, places=3)
+        self.assertAlmostEqual(result["confidence"], 0.8808, places=3)
         feeds = FakeSession.feeds
         self.assertEqual(feeds["input_ids"].dtype, np.int64)
         self.assertEqual(feeds["input_ids"].tolist(), [[101, 2023, 102]])
@@ -90,7 +89,7 @@ class MLPromptSafetyDetectorTests(unittest.TestCase):
         result = self.detect([[2.0, 0.0]])
 
         self.assertFalse(result["is_malicious"])
-        self.assertEqual(result["classification"], "Benign")
+        self.assertEqual(result["risk_level"], "Low")
 
     def test_threshold_above_probability_allows_prompt(self):
         result = self.detect([[0.0, 2.0]], threshold=0.95)
@@ -103,8 +102,7 @@ class MLPromptSafetyDetectorTests(unittest.TestCase):
         detector = NLP.MLPromptSafetyDetector(self.model_dir)
 
         self.assertFalse(detector.is_loaded)
-        self.assertIn("model.onnx", detector.load_error)
-        self.assertEqual(detector.detect("hello")["error"], "Model not loaded")
+        self.assertIn("not found", detector.load_error)
 
 
 if __name__ == "__main__":

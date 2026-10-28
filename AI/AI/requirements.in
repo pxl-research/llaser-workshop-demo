@@ -17,7 +17,6 @@ pymupdf4llm>=0.0.16,<0.1
 
 # --- Utilities ---
 numpy>=1.26,<3
-python-dotenv>=1.0,<2
 requests>=2.31,<3
 python-multipart>=0.0.9,<0.1
 
@@ -28,9 +27,6 @@ tokenizers>=0.22,<0.23
 
 # --- Pydantic ---
 pydantic>=2.7,<3
-
-# --- Prometheus ---
-prometheus_client>=0.20,<0.27
 
 # --- Security floors for transitive deps (Dependabot) ---
 urllib3>=2.8

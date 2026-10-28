@@ -44,7 +44,6 @@ const start = () => {
 
 describe("uploadDocument", () => {
   beforeEach(() => {
-    vi.stubEnv("VITE_API_URL", "http://localhost:8080/");
   });
 
   it("posts the file, reports upload percentage, and resolves with the result", async () => {
@@ -55,7 +54,7 @@ describe("uploadDocument", () => {
     xhr.finish(200, JSON.stringify({ filename: "doc.pdf", message: "Uploaded and indexed doc.pdf (12 chunks)." }));
 
     expect(xhr.method).toBe("POST");
-    expect(xhr.url).toBe("http://localhost:8080/api/upload-document");
+    expect(xhr.url).toBe("/api/upload-document");
     expect((xhr.body as FormData).get("file")).toBe(file);
     expect(percents).toEqual([45, 100]);
     await expect(done).resolves.toMatchObject({ message: "Uploaded and indexed doc.pdf (12 chunks)." });
@@ -90,7 +89,6 @@ describe("listDocuments and deleteDocument", () => {
   const mockFetch = vi.fn();
 
   beforeEach(() => {
-    vi.stubEnv("VITE_API_URL", "http://localhost:8080/");
     mockFetch.mockReset();
     vi.stubGlobal("fetch", mockFetch);
   });
@@ -99,14 +97,14 @@ describe("listDocuments and deleteDocument", () => {
     mockFetch.mockResolvedValueOnce(new Response(JSON.stringify({ documents: ["a.pdf"] })));
 
     await expect(listDocuments()).resolves.toEqual(["a.pdf"]);
-    expect(mockFetch).toHaveBeenCalledWith("http://localhost:8080/api/documents", undefined);
+    expect(mockFetch).toHaveBeenCalledWith("/api/documents", undefined);
   });
 
   it("deletes a document by its encoded name", async () => {
     mockFetch.mockResolvedValueOnce(new Response(JSON.stringify({ message: "Deleted my doc.pdf." })));
 
     await expect(deleteDocument("my doc.pdf")).resolves.toMatchObject({ message: "Deleted my doc.pdf." });
-    expect(mockFetch).toHaveBeenCalledWith("http://localhost:8080/api/documents/my%20doc.pdf", { method: "DELETE" });
+    expect(mockFetch).toHaveBeenCalledWith("/api/documents/my%20doc.pdf", { method: "DELETE" });
   });
 
   it("rejects with the JSON detail of an error response", async () => {

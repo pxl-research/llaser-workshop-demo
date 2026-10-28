@@ -1,8 +1,6 @@
 import logging
 import threading
 
-from AI.API import settings
-from AI.API.Agent import Agent
 from AI.API.exceptions import SystemNotReadyError
 from AI.API.readiness import readiness
 from AI.API.RAG import RAG
@@ -17,30 +15,15 @@ _warmup_started = False
 _warmup_lock = threading.Lock()
 
 
-def _handle_component_progress(component: str, state: str, model: str | None, message: str | None):
+def _handle_component_progress(component: str, state: str, model: str | None):
     if state == "loading":
         readiness.set_component_loading(component, model=model)
-        return
-    if state == "ready":
+    else:
         readiness.set_component_ready(component, model=model)
-        return
-    if state == "skipped":
-        readiness.set_component_skipped(component, message=message)
-        return
-    if state == "error":
-        readiness.set_component_error(component, message or "Component failed to load")
-        raise RuntimeError(message or f"{component} failed to load")
 
 
 def _create_system_instance():
-    on_progress = _handle_component_progress
-
-    if settings.SYSTEM_TYPE == "rag":
-        return RAG(on_progress=on_progress)
-    if settings.SYSTEM_TYPE == "agent":
-        return Agent(on_progress=on_progress)
-
-    raise RuntimeError(f"Unsupported SYSTEM_TYPE: {settings.SYSTEM_TYPE}")
+    return RAG(on_progress=_handle_component_progress)
 
 
 def _warmup_worker():
@@ -60,36 +43,24 @@ def _warmup_worker():
 def start_background_warmup():
     global _warmup_started
 
-    if not settings.BACKGROUND_WARMUP:
-        return
-
     with _warmup_lock:
         if _warmup_started:
             return
         _warmup_started = True
 
-    readiness.reset_for_system_type(settings.SYSTEM_TYPE)
+    readiness.reset()
     thread = threading.Thread(target=_warmup_worker, name="ai-system-warmup", daemon=True)
     thread.start()
     logger.info("Started background AI system warmup")
 
 
 def get_system_instance():
-    """Get the configured system instance, or raise if warmup is still running."""
-    global _system_instance
-
+    """Get the system instance, or raise if warmup is still running or failed."""
     if _system_instance is not None:
         return _system_instance
-
-    if settings.BACKGROUND_WARMUP:
-        if readiness.is_error():
-            raise SystemNotReadyError(readiness.error_message() or "System failed to start")
-        raise SystemNotReadyError("System is still starting")
-
-    _system_instance = _create_system_instance()
-    readiness.reset_for_system_type(settings.SYSTEM_TYPE)
-    readiness.mark_ready()
-    return _system_instance
+    if readiness.is_error():
+        raise SystemNotReadyError(readiness.error_message() or "System failed to start")
+    raise SystemNotReadyError("System is still starting")
 
 
 _homebrew_status = "off"  # off | loading | ready | error
@@ -147,15 +118,15 @@ def get_ml_safety_detector():
     """Get or create the ML-based safety detector instance."""
     global _ml_safety_detector
     if _ml_safety_detector is None:
-        from AI.API.Prompt_Defense_NLP import create_ml_safety_detector
+        from AI.API.Prompt_Defense_NLP import MLPromptSafetyDetector
 
-        _ml_safety_detector = create_ml_safety_detector()
+        _ml_safety_detector = MLPromptSafetyDetector()
     return _ml_safety_detector
 
 
 def load_prompt_defense_async():
     """Load the homebrew prompt defense model in a background thread."""
-    global _prompt_defense, _homebrew_status, _homebrew_error
+    global _homebrew_status, _homebrew_error
 
     if _homebrew_status == "loading":
         return
@@ -182,7 +153,7 @@ def load_prompt_defense_async():
 
 def load_nlp_defense_async():
     """Load the NLP/ML prompt defense model in a background thread."""
-    global _ml_safety_detector, _nlp_defense_status, _nlp_defense_error
+    global _nlp_defense_status, _nlp_defense_error
 
     if _nlp_defense_status == "loading":
         return
@@ -195,8 +166,8 @@ def load_nlp_defense_async():
     def _worker():
         global _ml_safety_detector, _nlp_defense_status, _nlp_defense_error
         try:
-            from AI.API.Prompt_Defense_NLP import create_ml_safety_detector
-            _ml_safety_detector = create_ml_safety_detector()
+            from AI.API.Prompt_Defense_NLP import MLPromptSafetyDetector
+            _ml_safety_detector = MLPromptSafetyDetector()
             if _ml_safety_detector and _ml_safety_detector.is_loaded:
                 _nlp_defense_status = "ready"
                 logger.info("NLP prompt defense loaded")

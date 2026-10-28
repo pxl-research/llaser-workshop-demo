@@ -12,7 +12,7 @@ if str(PACKAGE_PARENT) not in sys.path:
 
 
 llm_module = importlib.import_module("AI.API.LLM")
-LLM = llm_module.LLM
+stream_text = llm_module.stream_text
 
 
 class FakeStreamResponse:
@@ -61,7 +61,7 @@ class LLMTestCase(unittest.TestCase):
         with patch.dict("os.environ", {"OPENROUTER_API_KEY": "test"}, clear=False), \
              patch.object(llm_module.settings, "LLM_TIMEOUT_SECONDS", 7.5), \
              patch("AI.API.LLM.requests.post", return_value=response) as post:
-            result = drain(LLM("test-model").stream_text("system", "hello"))
+            result = drain(stream_text("test-model", "system", "hello"))
         return result, post
 
     def test_stream_text_yields_pieces_and_returns_usage_and_full_text(self):
@@ -85,7 +85,7 @@ class LLMTestCase(unittest.TestCase):
         response = FakeStreamResponse([delta_chunk("ok"), usage_chunk(1), "data: [DONE]"])
         with patch.dict("os.environ", {"OPENROUTER_API_KEY": "test"}, clear=False), \
              patch("AI.API.LLM.requests.post", return_value=response) as post:
-            drain(LLM("test-model").stream_text("system", "and who teaches it?", history=[("q1", "a1"), ("q2", "a2")]))
+            drain(stream_text("test-model", "system", "and who teaches it?", history=[("q1", "a1"), ("q2", "a2")]))
 
         self.assertEqual(post.call_args.kwargs["json"]["messages"], [
             {"role": "system", "content": "system"},

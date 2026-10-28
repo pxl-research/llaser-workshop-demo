@@ -11,17 +11,13 @@ const securityConfig = {
   homebrew_status: "off" as const,
   nlp_defense_status: "off" as const,
   nlp_confidence_threshold: 0.8,
-  max_upload_size_mb: 10,
-  max_output_tokens: 1024,
-  provider_timeout_seconds: 30,
-  static_code_analysis_verified: false,
 };
 
 function renderSecurityPage(overrides: Record<string, unknown> = {}) {
   const bodies: Record<string, unknown> = {
     "/api/security-config": { ...securityConfig, ...overrides },
     "/api/available-llms": [],
-    "/api/current-config": { status: "success", config: { llm: "test/model" } },
+    "/api/llm": { llm: "test/model" },
     "/api/system-prompt": { prompt: "{context}", default_prompt: "{context}" },
   };
   mockFetch.mockImplementation(async (url: string) => ({ ok: true, json: async () => bodies[url] }) as Response);

@@ -3,7 +3,7 @@ from typing import List, Optional
 
 import requests
 
-from AI.API import alerts, metrics, services, settings
+from AI.API import alerts, services, settings
 from AI.API.schemas import QueryRequest, QueryResponse
 
 
@@ -18,7 +18,6 @@ def blocked_query_response(
     risk_level: str,
     threat_types: List[str],
 ) -> QueryResponse:
-    metrics.malicious_prompt_count.inc()
     alerts.create_malicious_prompt_alert(
         prompt=prompt,
         risk_level=risk_level,
@@ -30,7 +29,6 @@ def blocked_query_response(
 
 def defense_unavailable_response() -> QueryResponse:
     """Block one query because a defense is down: no alert or session block, the user did nothing wrong."""
-    metrics.prompt_defense_unavailable.inc()
     return QueryResponse(answer=DEFENSE_UNAVAILABLE_ANSWER)
 
 

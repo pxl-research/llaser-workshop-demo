@@ -14,7 +14,7 @@ def normalize_upload_filename(filename: str) -> str:
         raise HTTPException(status_code=400, detail="Invalid filename")
 
     extension = Path(safe_filename).suffix.lower()
-    allowed = settings.allowed_document_extensions()
+    allowed = settings.DOCUMENT_EXTENSIONS
     if extension not in allowed:
         raise HTTPException(
             status_code=400, detail=f"Unsupported document type. Allowed: {', '.join(sorted(allowed))}"

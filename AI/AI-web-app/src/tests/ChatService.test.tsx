@@ -29,7 +29,6 @@ describe("sendMessageToAPI", () => {
     mockFetch.mockReset();
     consoleErrorSpy.mockClear();
     sessionStorage.clear();
-    vi.stubEnv("VITE_API_URL", "http://localhost:8080/");
   });
 
   it("sends the correct POST request and passes each streamed piece on", async () => {
@@ -40,7 +39,7 @@ describe("sendMessageToAPI", () => {
     expect(pieces).toEqual(["Hello ", "from API"]);
     expect(mockFetch).toHaveBeenCalledTimes(1);
     expect(mockFetch).toHaveBeenCalledWith(
-      "http://localhost:8080/api/query",
+      "/api/query",
       expect.objectContaining({
         method: "POST",
         headers: { "Content-Type": "application/json" },

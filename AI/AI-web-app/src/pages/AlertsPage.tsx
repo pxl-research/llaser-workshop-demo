@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { apiUrl } from "../services/api";
 import "../styles/alerts-page.css";
 
 interface MaliciousPromptAlert {
@@ -8,7 +7,6 @@ interface MaliciousPromptAlert {
   timestamp: string;
   riskLevel: "low" | "medium" | "high" | "critical";
   threatTypes: string[];
-  userIP?: string;
   sessionID?: string;
   status: "pending" | "accepted" | "denied";
 }
@@ -28,7 +26,7 @@ function AlertsPage() {
   const fetchAlerts = async () => {
     try {
       setLoading(true);
-      const response = await fetch(apiUrl("api/prompt-alerts"));
+      const response = await fetch("/api/prompt-alerts");
       if (response.ok) {
         const data = await response.json();
         setAlerts(data.alerts || []);
@@ -48,7 +46,7 @@ function AlertsPage() {
     action: "accept" | "deny"
   ) => {
     try {
-      const response = await fetch(apiUrl(`api/prompt-alerts/${alertId}`), {
+      const response = await fetch(`/api/prompt-alerts/${alertId}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -182,13 +180,6 @@ function AlertsPage() {
                         </span>
                       ))}
                     </div>
-                  </div>
-                )}
-
-                {alert.userIP && (
-                  <div className="detail-row">
-                    <strong>Source IP:</strong>
-                    <span>{alert.userIP}</span>
                   </div>
                 )}
 

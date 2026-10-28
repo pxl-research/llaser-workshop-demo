@@ -5,7 +5,7 @@ from typing import Callable, Optional
 
 import httpx
 
-from AI.API import metrics, settings
+from AI.API import settings
 
 logger = logging.getLogger(__name__)
 
@@ -88,5 +88,4 @@ class OpenRouterReranker:
                 "Rerank via OpenRouter failed (model=%s, status=%s, error=%s); using vector order",
                 self.model_id, status, type(exc).__name__,
             )
-            metrics.rerank_fallback.inc()
             return chunks[:top_n]

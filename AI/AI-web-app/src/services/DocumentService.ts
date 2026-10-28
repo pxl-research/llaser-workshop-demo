@@ -1,4 +1,3 @@
-import { apiUrl } from "./api";
 import { errorDetail as responseErrorDetail } from "./controls";
 
 export type UploadDocumentResult = {
@@ -6,16 +5,16 @@ export type UploadDocumentResult = {
 };
 
 const fetchJson = async <T>(path: string, init: RequestInit | undefined, fallback: string): Promise<T> => {
-  const response = await fetch(apiUrl(path), init);
+  const response = await fetch(path, init);
   if (!response.ok) throw new Error(await responseErrorDetail(response, fallback));
   return (await response.json()) as T;
 };
 
 export const listDocuments = async () =>
-  (await fetchJson<{ documents: string[] }>("api/documents", undefined, "Failed to load documents")).documents;
+  (await fetchJson<{ documents: string[] }>("/api/documents", undefined, "Failed to load documents")).documents;
 
 export const deleteDocument = (name: string) =>
-  fetchJson<{ message: string }>(`api/documents/${encodeURIComponent(name)}`, { method: "DELETE" }, "Delete failed");
+  fetchJson<{ message: string }>(`/api/documents/${encodeURIComponent(name)}`, { method: "DELETE" }, "Delete failed");
 
 const errorDetail = (xhr: XMLHttpRequest) => {
   try {
@@ -36,7 +35,7 @@ export function uploadDocument(
 ): Promise<UploadDocumentResult> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open("POST", apiUrl("api/upload-document"));
+    xhr.open("POST", "/api/upload-document");
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) onUploadProgress(Math.round((e.loaded / e.total) * 100));
     };

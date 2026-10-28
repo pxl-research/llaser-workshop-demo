@@ -17,12 +17,10 @@ const READY_POLL_INTERVAL_MS = 5000;
 const LOADING_POLL_INTERVAL_MS = 2000;
 
 type SystemReadinessContextValue = {
-  readiness: ReadinessResponse | null;
   isReady: boolean;
   isError: boolean;
   isLoading: boolean;
   statusMessage: string;
-  refresh: () => Promise<void>;
 };
 
 const CONNECTING_MESSAGE = "Checking AI system status...";
@@ -77,15 +75,8 @@ export function SystemReadinessProvider({ children }: { children: ReactNode }) {
         : CONNECTING_MESSAGE;
 
   const value = useMemo(
-    () => ({
-      readiness,
-      isReady,
-      isError,
-      isLoading,
-      statusMessage,
-      refresh,
-    }),
-    [readiness, isReady, isError, isLoading, statusMessage]
+    () => ({ isReady, isError, isLoading, statusMessage }),
+    [isReady, isError, isLoading, statusMessage]
   );
 
   return (

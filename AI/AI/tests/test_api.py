@@ -34,15 +34,6 @@ class FakeSystem:
         yield "k"
         return {"total_tokens": 2}
 
-    def update_llm(self, value: str):
-        return {"status": "success", "message": "updated", "model": value}
-
-    def update_embedding_model(self, value: str):
-        return {"status": "success", "message": "updated", "embedding_model": value}
-
-    def update_reranker(self, value: str):
-        return {"status": "success", "message": "updated", "model": value}
-
     def process_and_add_document(self, file_path: str):
         self.processed_files.append(file_path)
         return {"status": "success", "chunks": 1}
@@ -100,10 +91,6 @@ def install_api_dependency_stubs():
     rag_module.RAG = FakeSystem
     sys.modules["AI.API.RAG"] = rag_module
 
-    agent_module = types.ModuleType("AI.API.Agent")
-    agent_module.Agent = FakeSystem
-    sys.modules["AI.API.Agent"] = agent_module
-
     prompt_defense_module = types.ModuleType("AI.API.Prompt_Defense")
     prompt_defense_module.PromptDefense = SafePromptDefense
     prompt_defense_module.spark_defense = SafePromptDefense
@@ -112,7 +99,6 @@ def install_api_dependency_stubs():
 
     nlp_module = types.ModuleType("AI.API.Prompt_Defense_NLP")
     nlp_module.MLPromptSafetyDetector = FakeMLPromptSafetyDetector
-    nlp_module.create_ml_safety_detector = lambda: FakeMLPromptSafetyDetector()
     sys.modules["AI.API.Prompt_Defense_NLP"] = nlp_module
 
 
@@ -140,12 +126,10 @@ class ApiTestCase(unittest.IsolatedAsyncioTestCase):
         services._homebrew_backend = None
         services._nlp_defense_status = "off"
         services._nlp_defense_error = None
-        settings.SYSTEM_TYPE = "rag"
-        settings.BACKGROUND_WARMUP = False
         settings.USE_HOMEBREW = False
         settings.USE_NLP_DEFENSE = False
         settings.SYSTEM_PROMPT = settings.DEFAULT_SYSTEM_PROMPT
-        readiness.readiness.reset_for_system_type("rag")
+        readiness.readiness.reset()
         readiness.readiness.mark_ready()
         settings.MAX_UPLOAD_SIZE_BYTES = 25 * 1024 * 1024
         settings.UPLOAD_DIR = Path("data")
@@ -455,43 +439,23 @@ class ApiTestCase(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(alert["riskLevel"], "high")
         self.assertEqual(alert["threatTypes"], ["prompt injection"])
 
-    async def test_update_config_rejects_unknown_config_type(self):
-        response = await self.client.post(
-            "/update-config",
-            json={"config_type": "unknown", "value": "model-name"},
-        )
+    async def test_llm_rejects_extra_fields(self):
+        response = await self.client.post("/llm", json={"llm": "openrouter/model", "config_type": "llm"})
 
         self.assertEqual(response.status_code, 422)
 
-    async def test_update_config_updates_llm(self):
-        response = await self.client.post(
-            "/update-config",
-            json={"config_type": "llm", "value": "openrouter/model"},
-        )
+    async def test_llm_switch_is_used_and_reported(self):
+        settings.LLM = "openrouter/old"
+        self.addCleanup(setattr, settings, "LLM", settings.LLM)
+
+        response = await self.client.post("/llm", json={"llm": "openrouter/model"})
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["status"], "success")
-        self.assertEqual(response.json()["config_type"], "llm")
-        self.assertEqual(response.json()["value"], "openrouter/model")
-
-    async def test_update_config_error_hides_exception_text(self):
-        class ErrorSystem(FakeSystem):
-            def update_llm(self, value: str):
-                return {"status": "error", "message": "Failed to update LLM: secret detail", "model": None}
-
-        services._system_instance = ErrorSystem()
-        logging.disable(logging.NOTSET)
-        with self.assertLogs(level="ERROR") as logs:
-            response = await self.client.post(
-                "/update-config",
-                json={"config_type": "llm", "value": "openrouter/model"},
-            )
-
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["status"], "error")
-        self.assertEqual(response.json()["message"], "Configuration update failed")
-        self.assertNotIn("secret detail", response.text)
-        self.assertIn("secret detail", "\n".join(logs.output))
+        self.assertEqual(response.json(), {"llm": "openrouter/model"})
+        self.assertEqual(settings.LLM, "openrouter/model")
+        self.assertEqual((await self.client.get("/llm")).json(), {"llm": "openrouter/model"})
+        ready = (await self.client.get("/ready")).json()
+        self.assertEqual(ready["components"]["llm"], {"state": "ready", "model": "openrouter/model"})
 
     def test_log_formatter_escapes_line_breaks_in_messages(self):
         record = logging.LogRecord("t", logging.INFO, __file__, 1, "Upload: %s", ("a.pdf\r\nFAKE - ERROR - x",), None)
@@ -500,63 +464,17 @@ class ApiTestCase(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(line, "INFO - Upload: a.pdf\\r\\nFAKE - ERROR - x")
 
-    async def test_update_config_updates_reranker(self):
-        response = await self.client.post(
-            "/update-config",
-            json={"config_type": "reranker", "value": "qwen/qwen3-reranker-8b"},
-        )
-
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["status"], "success")
-        self.assertEqual(response.json()["config_type"], "reranker")
-        self.assertEqual(response.json()["value"], "qwen/qwen3-reranker-8b")
-
-    async def test_current_config_returns_env_fallback_when_system_not_ready(self):
+    async def test_llm_is_reported_while_the_system_is_loading(self):
         services._system_instance = None
-        settings.BACKGROUND_WARMUP = True
-        readiness.readiness.reset_for_system_type("rag")
-        readiness.readiness.set_component_loading("embedding", model="baai/bge-m3")
+        readiness.readiness.reset()
 
-        with patch.dict(
-            os.environ,
-            {
-                "LLM": "openai/gpt-test",
-                "EMBEDDING_MODEL": "baai/bge-m3",
-                "RERANKER": "qwen/qwen3-reranker-8b",
-            },
-            clear=False,
-        ):
-            response = await self.client.get("/current-config")
+        response = await self.client.get("/llm")
 
         self.assertEqual(response.status_code, 200)
-        body = response.json()
-        self.assertEqual(body["status"], "loading")
-        self.assertEqual(body["config"]["llm"], "openai/gpt-test")
-        self.assertEqual(body["config"]["embedding_model"], "baai/bge-m3")
-        self.assertEqual(body["config"]["reranker"], "qwen/qwen3-reranker-8b")
+        self.assertEqual(response.json(), {"llm": settings.LLM})
 
-    async def test_available_embeddings_lists_api_catalog(self):
-        response = await self.client.get("/available-embeddings")
-
-        self.assertEqual(response.status_code, 200)
-        body = response.json()
-        self.assertEqual(
-            [item["name"] for item in body],
-            ["baai/bge-m3", "openai/text-embedding-3-small"],
-        )
-        self.assertTrue(all(item["source"] == "api" for item in body))
-
-    async def test_available_rerankers_lists_catalog(self):
-        response = await self.client.get("/available-rerankers")
-
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual([r["name"] for r in response.json()], ["qwen/qwen3-reranker-8b"])
-
-    async def test_update_config_rejects_empty_value(self):
-        response = await self.client.post(
-            "/update-config",
-            json={"config_type": "llm", "value": ""},
-        )
+    async def test_llm_rejects_empty_value(self):
+        response = await self.client.post("/llm", json={"llm": ""})
 
         self.assertEqual(response.status_code, 422)
 
@@ -602,7 +520,7 @@ class ApiTestCase(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(
-            response.json()["detail"], "Unsupported document type. Allowed: .docx, .pdf, .pptx, .xlsx"
+            response.json()["detail"], "Unsupported document type. Allowed: .pdf"
         )
 
     async def test_upload_rejects_csv_with_allowed_list(self):
@@ -613,38 +531,17 @@ class ApiTestCase(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(
-            response.json()["detail"], "Unsupported document type. Allowed: .docx, .pdf, .pptx, .xlsx"
+            response.json()["detail"], "Unsupported document type. Allowed: .pdf"
         )
 
-    async def test_upload_accepts_docx_with_default_azure_loader(self):
-        with patch.dict(os.environ, {"DOCUMENT_LOADER": ""}):
-            response = await self.client.post(
-                "/upload-document",
-                files={"file": ("report.docx", b"PK", "application/octet-stream")},
-            )
-
-        self.assertEqual(response.status_code, 200)
-
-    async def test_upload_rejects_docx_with_pymupdf4llm_loader(self):
-        with patch.dict(os.environ, {"DOCUMENT_LOADER": "pymupdf4llm"}):
-            response = await self.client.post(
-                "/upload-document",
-                files={"file": ("report.docx", b"PK", "application/octet-stream")},
-            )
+    async def test_upload_rejects_docx(self):
+        response = await self.client.post(
+            "/upload-document",
+            files={"file": ("report.docx", b"PK", "application/octet-stream")},
+        )
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()["detail"], "Unsupported document type. Allowed: .pdf")
-
-    async def test_upload_rejects_documents_in_agent_mode(self):
-        settings.SYSTEM_TYPE = "agent"
-
-        response = await self.client.post(
-            "/upload-document",
-            files={"file": ("notes.pdf", b"hello", "application/pdf")},
-        )
-
-        self.assertEqual(response.status_code, 403)
-        self.assertEqual(response.json()["detail"], "Cannot upload documents in Agent mode")
 
     async def test_upload_rejects_oversized_file(self):
         settings.MAX_UPLOAD_SIZE_BYTES = 3
@@ -742,13 +639,6 @@ class ApiTestCase(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(response.status_code, 404)
         self.assertTrue(Path("secret.pdf").exists())
-
-    async def test_delete_rejects_documents_in_agent_mode(self):
-        settings.SYSTEM_TYPE = "agent"
-
-        response = await self.client.delete("/documents/notes.pdf")
-
-        self.assertEqual(response.status_code, 403)
 
     async def _upload_with_system(self, system):
         services._system_instance = system
@@ -921,8 +811,7 @@ class ApiTestCase(unittest.IsolatedAsyncioTestCase):
 
     async def test_ready_reports_loading_state(self):
         services._system_instance = None
-        settings.BACKGROUND_WARMUP = True
-        readiness.readiness.reset_for_system_type("rag")
+        readiness.readiness.reset()
         readiness.readiness.set_component_loading("embedding", model="baai/bge-m3")
 
         response = await self.client.get("/ready")
@@ -933,22 +822,18 @@ class ApiTestCase(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(body["components"]["embedding"]["state"], "loading")
         self.assertEqual(body["components"]["embedding"]["model"], "baai/bge-m3")
 
-    async def test_health_and_system_info_endpoints(self):
+    async def test_health_and_ready_endpoints(self):
         health_response = await self.client.get("/health")
-        system_info_response = await self.client.get("/system-info")
         ready_response = await self.client.get("/ready")
 
         self.assertEqual(health_response.status_code, 200)
         self.assertEqual(health_response.json(), {"status": "ok"})
-        self.assertEqual(system_info_response.status_code, 200)
-        self.assertEqual(system_info_response.json(), {"system_type": "rag"})
         self.assertEqual(ready_response.status_code, 200)
         self.assertEqual(ready_response.json()["status"], "ready")
 
     async def test_query_returns_503_when_system_is_not_ready(self):
         services._system_instance = None
-        settings.BACKGROUND_WARMUP = True
-        readiness.readiness.reset_for_system_type("rag")
+        readiness.readiness.reset()
         readiness.readiness.set_component_loading("embedding", model="baai/bge-m3")
 
         response = await self.client.post(
@@ -961,8 +846,7 @@ class ApiTestCase(unittest.IsolatedAsyncioTestCase):
 
     async def test_upload_returns_503_when_system_is_not_ready(self):
         services._system_instance = None
-        settings.BACKGROUND_WARMUP = True
-        readiness.readiness.reset_for_system_type("rag")
+        readiness.readiness.reset()
         readiness.readiness.set_component_loading("embedding", model="baai/bge-m3")
 
         response = await self.client.post(
@@ -973,20 +857,10 @@ class ApiTestCase(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status_code, 503)
         self.assertEqual(response.json()["detail"], "System is still starting")
 
-    async def test_metrics_endpoint_returns_prometheus_payload(self):
-        response = await self.client.get("/metrics")
-
-        self.assertEqual(response.status_code, 200)
-        self.assertIn("text/plain", response.headers["content-type"])
-        self.assertIn(b"total_queries", response.content)
-
     async def test_get_security_config_returns_current_state(self):
         settings.USE_HOMEBREW = True
         settings.USE_NLP_DEFENSE = False
         services._homebrew_status = "ready"
-        settings.MAX_UPLOAD_SIZE_BYTES = 10 * 1024 * 1024
-        settings.RAG_MAX_OUTPUT_TOKENS = 4096
-        settings.PROVIDER_TIMEOUT_SECONDS = 30.0
 
         response = await self.client.get("/security-config")
 
@@ -996,9 +870,6 @@ class ApiTestCase(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(data["use_nlp_defense"])
         self.assertEqual(data["homebrew_status"], "ready")
         self.assertEqual(data["nlp_defense_status"], "off")
-        self.assertAlmostEqual(data["max_upload_size_mb"], 10.0)
-        self.assertEqual(data["max_output_tokens"], 4096)
-        self.assertEqual(data["provider_timeout_seconds"], 30.0)
 
     async def test_get_security_config_reports_detector_confidence_threshold(self):
         detector = types.SimpleNamespace(confidence_threshold=0.8)
@@ -1015,15 +886,13 @@ class ApiTestCase(unittest.IsolatedAsyncioTestCase):
 
         response = await self.client.post(
             "/security-config",
-            json={"use_homebrew": True, "max_output_tokens": 1024},
+            json={"use_homebrew": True},
         )
 
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertTrue(data["use_homebrew"])
-        self.assertEqual(data["max_output_tokens"], 1024)
         self.assertTrue(settings.USE_HOMEBREW)
-        self.assertEqual(settings.RAG_MAX_OUTPUT_TOKENS, 1024)
         self.assertIn(data["homebrew_status"], ("loading", "ready", "error"))
 
     async def test_post_security_config_disable_sets_status_off(self):
@@ -1046,49 +915,6 @@ class ApiTestCase(unittest.IsolatedAsyncioTestCase):
             json={"nlp_confidence_threshold": 1.5},
         )
         self.assertEqual(response.status_code, 422)
-
-    async def test_post_security_config_rejects_negative_timeout(self):
-        response = await self.client.post(
-            "/security-config",
-            json={"provider_timeout_seconds": -5},
-        )
-        self.assertEqual(response.status_code, 422)
-
-    async def test_get_security_config_includes_static_code_analysis_verified(self):
-        settings.STATIC_CODE_ANALYSIS_VERIFIED = True
-
-        response = await self.client.get("/security-config")
-
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertTrue(data["static_code_analysis_verified"])
-
-    async def test_get_security_config_reflects_false_static_code_analysis_verified(self):
-        settings.STATIC_CODE_ANALYSIS_VERIFIED = False
-
-        response = await self.client.get("/security-config")
-
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertFalse(data["static_code_analysis_verified"])
-
-    async def test_post_security_config_cannot_modify_static_code_analysis_verified(self):
-        settings.STATIC_CODE_ANALYSIS_VERIFIED = False
-        original_value = settings.STATIC_CODE_ANALYSIS_VERIFIED
-
-        response = await self.client.post(
-            "/security-config",
-            json={"static_code_analysis_verified": True, "max_output_tokens": 2048},
-        )
-
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        # The field should still be false (unchanged by the POST)
-        self.assertFalse(data["static_code_analysis_verified"])
-        # The actual setting should not have changed
-        self.assertEqual(settings.STATIC_CODE_ANALYSIS_VERIFIED, original_value)
-        # But other fields should have been updated
-        self.assertEqual(data["max_output_tokens"], 2048)
 
     async def test_system_prompt_get_returns_active_and_default(self):
         settings.SYSTEM_PROMPT = "Custom {context}"
