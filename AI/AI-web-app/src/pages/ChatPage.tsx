@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ChangeEvent, FormEvent, KeyboardEvent } from "react";
-import { sendMessageToAPI } from "../services/ChatService";
+import { fetchAcceptedAnswer, fetchAlertStatus, sendMessageToAPI, type AlertStatus } from "../services/ChatService";
 import { deleteDocument, listDocuments, uploadDocument } from "../services/DocumentService";
 import { fetchSecurityConfig, type DefenseStatus } from "../services/security";
 import { useSystemReadiness } from "../components/SystemReadinessContext";
@@ -15,6 +15,18 @@ interface Message {
   sender: "user" | "response";
   upload?: { percent: number; startedAt: number };
 }
+
+// How often the chat checks the review of its blocked question.
+const ALERT_POLL_MS = 2000;
+
+const sleep = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
+
+const REVIEW_MESSAGES = {
+  pending: "⏳ Waiting for review. Accept or deny this question on the **Alerts** page.",
+  accepted: "✓ A reviewer accepted your question.\n\n",
+  denied: "✗ A reviewer denied this question. You can ask something else.",
+  gone: "The alert no longer exists (the app restarted). Ask your question again.",
+};
 
 // ponytail: fixed guess, Azure layout took ~20s for both a 10 and a 36 page PDF; tune if uploads run long or short.
 const PROCESSING_ESTIMATE_SECONDS = 20;
@@ -61,6 +73,8 @@ function ChatPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [documents, setDocuments] = useState<string[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
+  // The alert of this chat's blocked question; accepted means its answer can be fetched.
+  const [blockedAlertId, setBlockedAlertId] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [defenses, setDefenses] = useState<{ homebrew: DefenseStatus; nlp: DefenseStatus }>({
     homebrew: "off",
@@ -98,32 +112,77 @@ function ChatPage() {
 
   const canInteract = isReady && !isUploading && !isDeleting;
   // Uploads and new questions wait for the answer: both append to the chat the stream is writing into.
-  const canSend = canInteract && !isStreaming;
-  const inputPlaceholder = isReady
-    ? "what would you like to know?"
-    : "Chat will be available when the AI system is ready...";
+  // A blocked question waits for review: its answer may still arrive.
+  const canSend = canInteract && !isStreaming && !blockedAlertId;
+  const readyPlaceholder = blockedAlertId
+    ? "Waiting for review on the Alerts page..."
+    : "what would you like to know?";
+  const inputPlaceholder = isReady ? readyPlaceholder : "Chat will be available when the AI system is ready...";
   
   useEffect(() => {
     scrollParentToBottom(chatEndRef.current);
   }, [chat]);
 
-  const handleSend = async () => {
-    if (!canSend || message.trim() === "") return;
+  const addResponse = useCallback((text: string) => {
+    setChat((prev) => [...prev, { text, sender: "response" }]);
+  }, []);
 
-    const newUserMessage: Message = { text: message, sender: "user" };
-    setChat((prev) => [...prev, newUserMessage, createLoadingMessage()]);
-    setMessage("");
-    setIsStreaming(true);
-
-    // The first piece replaces the loading bubble; later pieces grow it.
-    let answer = "";
-    await sendMessageToAPI(message, (delta) => {
+  // Adds an answer bubble with typing dots and returns a function that appends text to it.
+  const startAnswerBubble = useCallback((firstText = "") => {
+    setChat((prev) => [...prev, createLoadingMessage()]);
+    let answer = firstText;
+    return (delta: string) => {
       answer += delta;
       const text = answer;
       setChat((prev) => [...prev.slice(0, -1), { text, sender: "response" }]);
-    });
+    };
+  }, []);
 
+  // A blocked question waits for review on the Alerts page.
+  // Every few seconds: ask the backend for the review. Accepted: show the answer. Denied or gone: say so.
+  useEffect(() => {
+    if (!blockedAlertId) return;
+    let stopped = false; // set when this chat stops waiting, e.g. the page closes
+
+    const waitForReview = async () => {
+      let status: AlertStatus = "pending";
+      while (status === "pending") {
+        await sleep(ALERT_POLL_MS);
+        if (stopped) return;
+        status = await fetchAlertStatus(blockedAlertId).catch(() => "pending" as const); // retry on errors
+        if (stopped) return;
+      }
+
+      setBlockedAlertId(null);
+      if (status === "accepted") {
+        setIsStreaming(true);
+        await fetchAcceptedAnswer(blockedAlertId, startAnswerBubble(REVIEW_MESSAGES.accepted));
+        setIsStreaming(false);
+      } else {
+        addResponse(REVIEW_MESSAGES[status]);
+      }
+    };
+
+    void waitForReview();
+    return () => {
+      stopped = true;
+    };
+  }, [blockedAlertId, addResponse, startAnswerBubble]);
+
+  const handleSend = async () => {
+    if (!canSend || message.trim() === "") return;
+
+    setChat((prev) => [...prev, { text: message, sender: "user" }]);
+    setMessage("");
+
+    setIsStreaming(true);
+    const { alertId } = await sendMessageToAPI(message, startAnswerBubble());
     setIsStreaming(false);
+
+    if (alertId) {
+      setBlockedAlertId(alertId);
+      addResponse(REVIEW_MESSAGES.pending);
+    }
   };
 
   const handlePickFiles = () => {

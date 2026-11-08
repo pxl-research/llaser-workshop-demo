@@ -70,6 +70,32 @@
     transform 0.2s ease;
 }
 
+/* Anchors the pending-alerts badge to the button's top-right corner. */
+.nav-button {
+  position: relative;
+}
+
+.nav-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  color: #ffffff;
+  background: #dc2626;
+  border: 2px solid #ffffff;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1;
+  pointer-events: none;
+}
+
 .nav-button:hover {
   color: var(--color-ink);
   transform: translateY(-1px);

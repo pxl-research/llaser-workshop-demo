@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import { afterEach, describe, expect, it, vi, beforeEach } from "vitest";
 import App from "../App";
@@ -57,6 +57,59 @@ describe("App shell", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Chat" }));
     expect(screen.getByText("Chat page content")).toBeInTheDocument();
+  });
+
+  describe("pending alerts badge", () => {
+    const alertsWith = (...statuses: string[]) =>
+      mockFetch.mockImplementation(async (url: string) =>
+        url === "/api/prompt-alerts"
+          ? ({ ok: true, json: async () => ({ alerts: statuses.map((status, i) => ({ id: `a${i}`, status })) }) } as Response)
+          : ({ ok: true, json: async () => ({ status: "ready", components: {} }) } as Response)
+      );
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("shows the number of pending alerts on the Alerts button", async () => {
+      alertsWith("pending", "accepted", "pending", "denied");
+      render(<App />);
+
+      const button = await screen.findByRole("button", { name: "Alerts (2 pending)" });
+      expect(within(button).getByText("2")).toHaveClass("nav-badge");
+    });
+
+    it("shows no badge without pending alerts", async () => {
+      alertsWith("accepted", "denied");
+      render(<App />);
+
+      await vi.waitFor(() => expect(mockFetch).toHaveBeenCalledWith("/api/prompt-alerts"));
+      const button = screen.getByRole("button", { name: "Alerts" });
+      expect(button.querySelector(".nav-badge")).toBeNull();
+    });
+
+    it("caps the badge at 99+", async () => {
+      alertsWith(...Array.from({ length: 120 }, () => "pending"));
+      render(<App />);
+
+      const button = await screen.findByRole("button", { name: "Alerts (120 pending)" });
+      expect(within(button).getByText("99+")).toBeInTheDocument();
+    });
+
+    it("updates the count and keeps it while the backend is unreachable", async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      alertsWith("pending");
+      render(<App />);
+      await screen.findByRole("button", { name: "Alerts (1 pending)" });
+
+      mockFetch.mockRejectedValue(new Error("backend restarting"));
+      await act(() => vi.advanceTimersByTimeAsync(5000));
+      expect(screen.getByRole("button", { name: "Alerts (1 pending)" })).toBeInTheDocument();
+
+      alertsWith("pending", "pending", "pending");
+      await act(() => vi.advanceTimersByTimeAsync(5000));
+      expect(await screen.findByRole("button", { name: "Alerts (3 pending)" })).toBeInTheDocument();
+    });
   });
 
   it("preserves chat state when switching to another page and back", () => {

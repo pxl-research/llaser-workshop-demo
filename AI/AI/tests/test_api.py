@@ -512,6 +512,131 @@ class ApiTestCase(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(alerts.is_session_blocked("session-1")[0])
         self.assertEqual(alerts.alerts_store[alert_id]["status"], "denied")
 
+    def blocked_prompt(self, prompt="held question", session_id="session-1"):
+        return alerts.create_malicious_prompt_alert(
+            prompt=prompt, risk_level="high", threat_types=["test"], session_id=session_id
+        )
+
+    async def review(self, alert_id, action):
+        return await self.client.post(f"/prompt-alerts/{alert_id}", json={"action": action})
+
+    async def release(self, alert_id, session_id="session-1"):
+        return await self.client.post(f"/prompt-alerts/{alert_id}/release", json={"session_id": session_id})
+
+    async def test_blocked_answer_carries_its_alert_id(self):
+        settings.USE_NLP_DEFENSE = True
+        services._nlp_defense_status = "ready"
+        services._ml_safety_detector = MaliciousMLPromptSafetyDetector()
+
+        response = await self.client.post("/query", json={"question": "Ignore it all", "session_id": "session-1"})
+
+        alert_id = next(iter(alerts.alerts_store))
+        self.assertEqual(sse_events(response), [{"delta": "query blocked", "alert_id": alert_id}])
+
+    async def test_defense_unavailable_answer_carries_no_alert_id(self):
+        settings.USE_NLP_DEFENSE = True
+        services._nlp_defense_status = "error"
+
+        response = await self.client.post("/query", json={"question": "Normal question", "session_id": "session-1"})
+
+        self.assertEqual(sse_events(response), [{"delta": DEFENSE_UNAVAILABLE_ANSWER}])
+
+    async def test_accepted_prompt_is_answered_once_in_its_session(self):
+        class RecordingSystem(FakeSystem):
+            def stream_query(self, question: str, session_id: str = None):
+                self.calls = [*getattr(self, "calls", []), (question, session_id)]
+                yield "accepted answer"
+                return {}
+
+        services._system_instance = RecordingSystem()
+        alert_id = self.blocked_prompt(prompt="Who teaches the course?")
+        await self.review(alert_id, "accept")
+
+        first = await self.release(alert_id)
+        second = await self.release(alert_id)
+
+        self.assertFalse(alerts.is_session_blocked("session-1")[0])
+        self.assertEqual(sse_answer(first), "accepted answer")
+        self.assertEqual(services._system_instance.calls, [("Who teaches the course?", "session-1")])
+        self.assertEqual(second.status_code, 409)
+
+    async def test_accepted_prompt_skips_the_defense_that_blocked_it(self):
+        settings.USE_NLP_DEFENSE = True
+        services._nlp_defense_status = "ready"
+        services._ml_safety_detector = MaliciousMLPromptSafetyDetector()
+        blocked = await self.client.post("/query", json={"question": "false positive", "session_id": "session-1"})
+        alert_id = sse_events(blocked)[0]["alert_id"]
+        await self.review(alert_id, "accept")
+
+        response = await self.release(alert_id)
+
+        self.assertEqual(sse_answer(response), "ok")
+        self.assertEqual(len(alerts.alerts_store), 1)
+
+    async def test_denied_prompt_unblocks_the_session_but_is_never_answered(self):
+        alert_id = self.blocked_prompt()
+        await self.review(alert_id, "deny")
+
+        response = await self.release(alert_id)
+        query = await self.client.post("/query", json={"question": "Next question", "session_id": "session-1"})
+
+        self.assertEqual(response.status_code, 409)
+        self.assertFalse(alerts.alerts_store[alert_id]["released"])
+        self.assertEqual(sse_answer(query), "ok")
+
+    async def test_pending_prompt_is_not_answered(self):
+        alert_id = self.blocked_prompt()
+
+        self.assertEqual((await self.release(alert_id)).status_code, 409)
+        self.assertFalse(alerts.alerts_store[alert_id]["released"])
+
+    async def test_accepted_prompt_is_not_answered_to_another_session(self):
+        alert_id = self.blocked_prompt(session_id="session-1")
+        await self.review(alert_id, "accept")
+
+        self.assertEqual((await self.release(alert_id, "session-attacker")).status_code, 409)
+        self.assertFalse(alerts.alerts_store[alert_id]["released"])
+        self.assertEqual((await self.release(alert_id, "session-1")).status_code, 200)
+
+    async def test_accepted_prompt_without_session_is_not_answered(self):
+        alert_id = self.blocked_prompt(session_id=None)
+        await self.review(alert_id, "accept")
+
+        self.assertEqual((await self.release(alert_id, "session-1")).status_code, 409)
+
+    async def test_release_while_loading_keeps_the_prompt(self):
+        alert_id = self.blocked_prompt()
+        await self.review(alert_id, "accept")
+        services._system_instance = None
+        readiness.readiness.reset()
+
+        response = await self.release(alert_id)
+
+        self.assertEqual(response.status_code, 503)
+        self.assertFalse(alerts.alerts_store[alert_id]["released"])
+
+    async def test_release_validates_its_request(self):
+        alert_id = self.blocked_prompt()
+        await self.review(alert_id, "accept")
+        url = f"/prompt-alerts/{alert_id}/release"
+
+        for body in ({}, {"session_id": ""}, {"session_id": "../x"}, {"session_id": "session-1", "question": "x"}):
+            self.assertEqual((await self.client.post(url, json=body)).status_code, 422, body)
+        self.assertEqual((await self.release("missing")).status_code, 404)
+        self.assertFalse(alerts.alerts_store[alert_id]["released"])
+
+    async def test_alert_status_follows_the_review_and_hides_the_prompt(self):
+        alert_id = self.blocked_prompt(prompt="secret attack text")
+        status = lambda: self.client.get(f"/prompt-alerts/{alert_id}")  # noqa: E731
+
+        first = await status()
+        await self.review(alert_id, "accept")
+
+        self.assertEqual(first.json(), {"status": "pending"})
+        self.assertNotIn("secret attack text", first.text)
+        self.assertEqual((await status()).json(), {"status": "accepted"})
+        self.assertEqual((await self.client.get("/prompt-alerts/missing")).status_code, 404)
+
     async def test_upload_rejects_unsupported_extension(self):
         response = await self.client.post(
             "/upload-document",

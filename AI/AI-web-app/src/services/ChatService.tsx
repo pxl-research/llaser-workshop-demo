@@ -29,14 +29,22 @@ const responseError = async (response: Response): Promise<Error> => {
   return new Error(detail);
 };
 
-const handleEvent = (event: string, onDelta: (text: string) => void) => {
-  if (!event.startsWith("data: ")) return;
-  const data = JSON.parse(event.slice("data: ".length)) as { delta?: string; error?: string };
-  if (data.error) throw new Error(data.error);
-  if (data.delta) onDelta(data.delta);
-};
+type OnDelta = (text: string) => void;
 
-const readEvents = async (body: ReadableStream<Uint8Array>, onDelta: (text: string) => void) => {
+// One server-sent event from the backend: a piece of the answer, an error, or the alert of a blocked question.
+interface AnswerEvent {
+  delta?: string;
+  error?: string;
+  alert_id?: string;
+}
+
+export interface AnswerResult {
+  // Set when a defense blocked the question; the alert waits for review on the Alerts page.
+  alertId: string | null;
+}
+
+// The backend streams events as "data: {...}" blocks separated by a blank line.
+const readEvents = async (body: ReadableStream<Uint8Array>, onEvent: (event: AnswerEvent) => void) => {
   const reader = body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
@@ -44,36 +52,55 @@ const readEvents = async (body: ReadableStream<Uint8Array>, onDelta: (text: stri
     const { done, value } = await reader.read();
     if (done) break;
     buffer += decoder.decode(value, { stream: true });
-    const events = buffer.split("\n\n");
-    buffer = events.pop() ?? "";
-    for (const event of events) handleEvent(event, onDelta);
+    const blocks = buffer.split("\n\n");
+    buffer = blocks.pop() ?? ""; // the last block may still be incomplete
+    for (const block of blocks) {
+      if (block.startsWith("data: ")) onEvent(JSON.parse(block.slice("data: ".length)) as AnswerEvent);
+    }
   }
 };
 
-// Streams the answer: onDelta gets each piece of text as the backend sends it.
-export const sendMessageToAPI = async (
-  question: string,
-  onDelta: (text: string) => void
-): Promise<void> => {
+// POSTs to the backend and passes each piece of the answer to onDelta as it arrives.
+// Errors are shown in the answer itself.
+const streamAnswer = async (url: string, body: object, onDelta: OnDelta): Promise<AnswerResult> => {
+  const result: AnswerResult = { alertId: null };
   try {
-    const sessionId = getSessionId();
-    
-    const response = await fetch("/api/query", {
+    const response = await fetch(url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ 
-        question,
-        session_id: sessionId 
-      }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
     });
-
     if (!response.ok) throw await responseError(response);
     if (!response.body) throw new Error("API returned an empty response");
-    await readEvents(response.body, onDelta);
+
+    await readEvents(response.body, (event) => {
+      if (event.error) throw new Error(event.error);
+      if (event.delta) onDelta(event.delta);
+      if (event.alert_id) result.alertId = event.alert_id;
+    });
   } catch (error) {
     console.error("Error sending message:", error);
     onDelta(`\n\n${error}`);
   }
+  return result;
+};
+
+export const sendMessageToAPI = (question: string, onDelta: OnDelta): Promise<AnswerResult> =>
+  streamAnswer("/api/query", { question, session_id: getSessionId() }, onDelta);
+
+// "gone": the backend no longer knows the alert, e.g. after a restart.
+export type AlertStatus = "pending" | "accepted" | "denied" | "gone";
+
+const alertUrl = (alertId: string) => `/api/prompt-alerts/${encodeURIComponent(alertId)}`;
+
+export const fetchAlertStatus = async (alertId: string): Promise<AlertStatus> => {
+  const response = await fetch(alertUrl(alertId));
+  if (response.status === 404) return "gone";
+  if (!response.ok) throw await responseError(response);
+  return ((await response.json()) as { status: AlertStatus }).status;
+};
+
+// Streams the answer to a prompt a reviewer accepted; only this session gets it, once.
+export const fetchAcceptedAnswer = async (alertId: string, onDelta: OnDelta): Promise<void> => {
+  await streamAnswer(`${alertUrl(alertId)}/release`, { session_id: getSessionId() }, onDelta);
 };

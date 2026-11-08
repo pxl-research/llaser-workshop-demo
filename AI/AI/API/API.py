@@ -12,6 +12,8 @@ from AI.API import alerts, documents, guardrails, readiness, services, settings
 from AI.API.exceptions import DocumentProcessingError, SystemNotReadyError
 from AI.API.schemas import (
     AlertActionRequest,
+    AlertReleaseRequest,
+    AlertStatusResponse,
     LlmUpdateRequest,
     QueryRequest,
     ReadinessResponse,
@@ -262,7 +264,11 @@ def query_rag(request: QueryRequest):
 
     blocked_response = guardrails.check_prompt_defenses(request)
     if blocked_response:
-        return _event_stream(iter([_sse({"delta": blocked_response.answer})]))
+        payload = {"delta": blocked_response.answer}
+        if blocked_response.alert_id:
+            # The chat uses it to fetch the answer if the alert is accepted.
+            payload["alert_id"] = blocked_response.alert_id
+        return _event_stream(iter([_sse(payload)]))
 
     logger.info("Prompt passed all safety checks - Processing query for session %s", request.session_id)
     system = _require_ready_system()
@@ -342,6 +348,32 @@ def get_prompt_alerts():
     """Get all malicious prompt alerts."""
     logger.info("Fetching alerts - Total alerts: %s", len(alerts.alerts_store))
     return {"alerts": list(alerts.alerts_store.values())}
+
+
+@app.get("/prompt-alerts/{alert_id}", response_model=AlertStatusResponse)
+def get_prompt_alert_status(alert_id: str):
+    """Review status only: the chat checks it after one of its questions was blocked."""
+    alert = alerts.alerts_store.get(alert_id)
+    if alert is None:
+        raise HTTPException(status_code=404, detail="Alert not found")
+    return AlertStatusResponse(status=alert["status"])
+
+
+@app.post("/prompt-alerts/{alert_id}/release")
+def release_accepted_prompt(alert_id: str, request: AlertReleaseRequest):
+    """Answer an accepted prompt once, in the session it was blocked in. It skips the defenses:
+    a reviewer accepted it."""
+    if alert_id not in alerts.alerts_store:
+        raise HTTPException(status_code=404, detail="Alert not found")
+    # Checked before the claim, so a release while the system loads does not use up the prompt.
+    system = _require_ready_system()
+
+    question = alerts.claim_accepted_prompt(alert_id, request.session_id)
+    if question is None:
+        raise HTTPException(status_code=409, detail="Nothing to release for this alert")
+
+    logger.info("Answering accepted prompt of alert %s - Session: %s", alert_id, request.session_id)
+    return _event_stream(_stream_answer(system, QueryRequest(question=question, session_id=request.session_id)))
 
 
 @app.post("/prompt-alerts/{alert_id}")

@@ -7,6 +7,7 @@ import { SystemReadinessBanner } from './components/SystemReadinessBanner'
 import ChatPage from './pages/ChatPage.tsx'
 import SecurityPage from './pages/SecurityPage.tsx'
 import AlertsPage from './pages/AlertsPage.tsx'
+import { usePendingAlertCount } from './services/alerts'
 import './App.css'
 
 interface ErrorBoundaryProps {
@@ -49,6 +50,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 
 function App() {
   const [currentPage, setCurrentPage] = useState<'chat' | 'security' | 'alerts'>('chat')
+  const pendingAlerts = usePendingAlertCount()
 
   return (
     <SystemReadinessProvider>
@@ -73,11 +75,17 @@ function App() {
             >
               Controls
             </button>
-            <button 
+            <button
               className={`nav-button ${currentPage === 'alerts' ? 'active' : ''}`}
               onClick={() => setCurrentPage('alerts')}
+              aria-label={pendingAlerts > 0 ? `Alerts (${pendingAlerts} pending)` : undefined}
             >
               Alerts
+              {pendingAlerts > 0 && (
+                <span className="nav-badge" aria-hidden="true">
+                  {pendingAlerts > 99 ? '99+' : pendingAlerts}
+                </span>
+              )}
             </button>
           </nav>
         </div>

@@ -18,6 +18,8 @@ class QueryRequest(StrictModel):
 
 class QueryResponse(BaseModel):
     answer: str
+    # Set when a defense blocked the question and created an alert.
+    alert_id: Optional[str] = None
 
 
 class LlmUpdateRequest(StrictModel):
@@ -37,6 +39,14 @@ class ReadinessResponse(BaseModel):
 
 class AlertActionRequest(StrictModel):
     action: Literal["accept", "deny"]
+
+
+class AlertStatusResponse(BaseModel):
+    status: Literal["pending", "accepted", "denied"]
+
+
+class AlertReleaseRequest(StrictModel):
+    session_id: str = Field(..., min_length=1, max_length=128, pattern=r"^[A-Za-z0-9_.:-]+$")
 
 
 class SecurityConfigResponse(BaseModel):

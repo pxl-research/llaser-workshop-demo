@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { sendMessageToAPI } from "../services/ChatService";
+import { fetchAcceptedAnswer, fetchAlertStatus, sendMessageToAPI } from "../services/ChatService";
 
 const mockFetch = vi.fn();
 vi.stubGlobal("fetch", mockFetch);
@@ -109,5 +109,61 @@ describe("sendMessageToAPI", () => {
 
     expect((await collect("Any question")).join("")).toContain("Network down");
     expect(consoleErrorSpy).toHaveBeenCalledWith("Error sending message:", expect.any(Error));
+  });
+
+  it("reports the alert of a blocked question", async () => {
+    mockFetch.mockResolvedValueOnce(okResponse(event({ delta: "query blocked", alert_id: "alert-1" })));
+    const pieces: string[] = [];
+
+    const result = await sendMessageToAPI("attack", (delta) => pieces.push(delta));
+
+    expect(pieces).toEqual(["query blocked"]);
+    expect(result).toEqual({ alertId: "alert-1" });
+  });
+
+  it("reports no alert for a normal answer", async () => {
+    mockFetch.mockResolvedValueOnce(okResponse(event({ delta: "fine" })));
+    expect(await sendMessageToAPI("hi", () => {})).toEqual({ alertId: null });
+  });
+});
+
+describe("review of a blocked question", () => {
+  beforeEach(() => {
+    mockFetch.mockReset();
+    sessionStorage.clear();
+  });
+
+  it.each(["pending", "accepted", "denied"])("reads the %s status", async (status) => {
+    mockFetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ status }) });
+
+    expect(await fetchAlertStatus("alert/1")).toBe(status);
+    expect(mockFetch).toHaveBeenCalledWith("/api/prompt-alerts/alert%2F1");
+  });
+
+  it("reports an alert the backend no longer knows as gone", async () => {
+    mockFetch.mockResolvedValueOnce({ ok: false, status: 404, json: async () => ({}) });
+
+    expect(await fetchAlertStatus("alert-1")).toBe("gone");
+  });
+
+  it("throws on other errors", async () => {
+    mockFetch.mockResolvedValueOnce({ ok: false, status: 500, json: async () => ({}) });
+
+    await expect(fetchAlertStatus("alert-1")).rejects.toThrow("API error: 500");
+  });
+
+  it("streams the accepted answer for this chat's session", async () => {
+    mockFetch
+      .mockResolvedValueOnce(okResponse(event({ delta: "query blocked", alert_id: "alert-1" })))
+      .mockResolvedValueOnce(okResponse(event({ delta: "Accepted " }), event({ delta: "answer" })));
+    await sendMessageToAPI("attack", () => {});
+    const sessionId = JSON.parse(mockFetch.mock.calls[0][1].body).session_id;
+    const pieces: string[] = [];
+
+    await fetchAcceptedAnswer("alert-1", (delta) => pieces.push(delta));
+
+    expect(pieces).toEqual(["Accepted ", "answer"]);
+    expect(mockFetch.mock.calls[1][0]).toBe("/api/prompt-alerts/alert-1/release");
+    expect(JSON.parse(mockFetch.mock.calls[1][1].body)).toEqual({ session_id: sessionId });
   });
 });

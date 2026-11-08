@@ -18,13 +18,13 @@ def blocked_query_response(
     risk_level: str,
     threat_types: List[str],
 ) -> QueryResponse:
-    alerts.create_malicious_prompt_alert(
+    alert_id = alerts.create_malicious_prompt_alert(
         prompt=prompt,
         risk_level=risk_level,
         threat_types=threat_types,
         session_id=session_id,
     )
-    return QueryResponse(answer="query blocked")
+    return QueryResponse(answer="query blocked", alert_id=alert_id)
 
 
 def defense_unavailable_response() -> QueryResponse:
