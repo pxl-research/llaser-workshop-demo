@@ -126,7 +126,7 @@ EOF
 if [[ "$WITH_PROMPTFOO" -eq 1 ]]; then
   cat <<EOF
 promptfoo UI:     http://127.0.0.1:${PROMPTFOO_PORT}
-Smoke eval:       docker compose exec promptfoo promptfoo eval -c /home/promptfoo/config/promptfooconfig.yaml
+Next:             ./003_promptfoo_check.sh, then 004 and 005 (see README.md)
 EOF
 fi
 

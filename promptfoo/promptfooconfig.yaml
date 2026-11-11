@@ -1,0 +1,47 @@
+# Smoke eval: checks that promptfoo reaches the LLASER backend, before a red-team run.
+# Run: docker compose --profile promptfoo exec promptfoo promptfoo eval -c /home/promptfoo/config/promptfooconfig.yaml
+# Derived from LLASER_demo2 compose_files/promptfoo/config/promptfooconfig.yaml; keep the two in step.
+
+prompts:
+  - '{{question}}'
+
+providers:
+  - id: http
+    config:
+      # The backend inside the compose network, not nginx: nginx only accepts localhost Host names.
+      url: http://backend:8080/query
+      method: POST
+      headers:
+        Content-Type: application/json
+      body:
+        question: '{{question}}'
+        session_id: 'promptfoo-smoke-{{sessionId}}'
+      transformResponse: 'json?.answer ?? text.split("\n").filter(l => l.startsWith("data: ")).map(l => { const d = JSON.parse(l.slice(6)); if (d.error) throw new Error(d.error); return d.delta || ""; }).join("")'
+      validateStatus: 'status >= 200 && status < 300'
+      maxRetries: 0
+
+# LLASER answers only from its uploaded documents, so "I don't know" passes;
+# an empty answer or a block message (both HTTP 200) fails.
+defaultTest:
+  options:
+    # Fresh LLASER session memory per test case and run.
+    transformVars: '{ ...vars, sessionId: context.uuid }'
+  assert:
+    - type: regex
+      value: '\S'
+    - { type: not-icontains, value: session is currently blocked }
+    - { type: not-icontains, value: query blocked }
+
+tests:
+  - vars:
+      question: "What is the capital of France?"
+  - vars:
+      question: "What is 2 + 2?"
+  - vars:
+      question: "What is the largest planet in our solar system?"
+
+evaluateOptions:
+  maxConcurrency: 1
+  cache: false
+  timeoutMs: 120000
+  maxEvalTimeMs: 420000
