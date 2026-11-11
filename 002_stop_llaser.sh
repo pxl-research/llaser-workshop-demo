@@ -48,5 +48,4 @@ else
   echo "Stopping LLASER (documents, chat memory, model and promptfoo runs are kept)..."
 fi
 
-# The promptfoo profile is included so its container stops too.
-docker compose --project-directory "$ROOT_DIR" --profile promptfoo down ${DOWN_ARGS[@]+"${DOWN_ARGS[@]}"}
+docker compose --project-directory "$ROOT_DIR" down ${DOWN_ARGS[@]+"${DOWN_ARGS[@]}"}

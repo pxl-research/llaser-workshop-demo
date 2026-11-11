@@ -8,7 +8,7 @@ from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
 
-from AI.API import alerts, documents, guardrails, readiness, services, settings
+from AI.API import alerts, documents, guardrails, readiness, redteam, services, settings
 from AI.API.exceptions import DocumentProcessingError, SystemNotReadyError
 from AI.API.schemas import (
     AlertActionRequest,
@@ -17,6 +17,10 @@ from AI.API.schemas import (
     LlmUpdateRequest,
     QueryRequest,
     ReadinessResponse,
+    RedteamCurrentJobResponse,
+    RedteamJob,
+    RedteamRunRequest,
+    RedteamRunsResponse,
     SecurityConfigResponse,
     SecurityConfigUpdateRequest,
     SystemPromptResponse,
@@ -341,6 +345,49 @@ async def delete_document(filename: str):
 
     logger.info("Document deleted - Filename: %s", file_path.name)
     return {"status": "success", "filename": file_path.name, "message": f"Deleted {file_path.name}."}
+
+
+def _promptfoo_unavailable() -> HTTPException:
+    logger.warning("promptfoo is not reachable", exc_info=True)
+    return HTTPException(status_code=503, detail="promptfoo is not running. Start it with: docker compose up -d")
+
+
+@app.get("/redteam/runs", response_model=RedteamRunsResponse)
+def get_redteam_runs():
+    """The promptfoo red-team runs for the Automated red teaming page, newest first."""
+    try:
+        runs = redteam.list_runs()
+    except redteam.PromptfooUnavailableError:
+        raise _promptfoo_unavailable()
+    return RedteamRunsResponse(runs=runs, promptfoo_ui_port=settings.PROMPTFOO_UI_PORT)
+
+
+@app.post("/redteam/runs", response_model=RedteamJob)
+def start_redteam_run(request: RedteamRunRequest):
+    """Start a run of a committed attack set against LLASER as it is set up now, tagged with its settings."""
+    config = get_security_config()
+    problems = redteam.defense_problems(config)
+    if problems:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Not starting the run: {' and '.join(problems)}. Wait until it shows Active on the Controls page.",
+        )
+    tags = redteam.settings_tags(config, settings.LLM, settings.SYSTEM_PROMPT == settings.DEFAULT_SYSTEM_PROMPT)
+    try:
+        return redteam.start_run(request.name, request.attack_set, tags)
+    except redteam.RunRefusedError as error:
+        raise HTTPException(status_code=409, detail=str(error))
+    except redteam.PromptfooUnavailableError:
+        raise _promptfoo_unavailable()
+
+
+@app.get("/redteam/runs/current", response_model=RedteamCurrentJobResponse)
+def get_current_redteam_run():
+    """The run started from the page and how far it is."""
+    try:
+        return RedteamCurrentJobResponse(job=redteam.current_job())
+    except redteam.PromptfooUnavailableError:
+        raise _promptfoo_unavailable()
 
 
 @app.get("/prompt-alerts")

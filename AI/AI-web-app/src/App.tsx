@@ -7,6 +7,7 @@ import { SystemReadinessBanner } from './components/SystemReadinessBanner'
 import ChatPage from './pages/ChatPage.tsx'
 import SecurityPage from './pages/SecurityPage.tsx'
 import AlertsPage from './pages/AlertsPage.tsx'
+import RedTeamPage from './pages/RedTeamPage.tsx'
 import { usePendingAlertCount } from './services/alerts'
 import './App.css'
 
@@ -49,7 +50,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 }
 
 function App() {
-  const [currentPage, setCurrentPage] = useState<'chat' | 'security' | 'alerts'>('chat')
+  const [currentPage, setCurrentPage] = useState<'chat' | 'security' | 'alerts' | 'redteam'>('chat')
   const pendingAlerts = usePendingAlertCount()
 
   return (
@@ -87,6 +88,13 @@ function App() {
                 </span>
               )}
             </button>
+            <button
+              className={`nav-button ${currentPage === 'redteam' ? 'active' : ''}`}
+              onClick={() => setCurrentPage('redteam')}
+              title="Automated red teaming"
+            >
+              Auto red team
+            </button>
           </nav>
         </div>
       </header>
@@ -109,6 +117,11 @@ function App() {
         {currentPage === 'alerts' && (
           <ErrorBoundary>
             <AlertsPage />
+          </ErrorBoundary>
+        )}
+        {currentPage === 'redteam' && (
+          <ErrorBoundary>
+            <RedTeamPage />
           </ErrorBoundary>
         )}
       </main>

@@ -15,7 +15,7 @@ You do these steps at the start of the workshop.
 
 ### 1. Install Docker
 
-Install Docker Desktop (macOS, Windows with WSL 2) or Docker Engine with the compose plugin (Linux). You need Compose v2 or later, 8 GB RAM and about 1.5 GB free disk. Docker Desktop is free for personal use and education; Rancher Desktop is a free alternative.
+Install Docker Desktop (macOS, Windows with WSL 2) or Docker Engine with the compose plugin (Linux). You need Compose v2 or later, 8 GB RAM and about 5 GB free disk. Docker Desktop is free for personal use and education; Rancher Desktop is a free alternative.
 
 Check the version:
 
@@ -57,7 +57,7 @@ The OpenRouter key is personal and has a credit limit. All keys stop working aft
    docker compose up -d
    docker compose logs -f model-init
    ```
-   The first start downloads the images (about 1 GB) and the NLP model (about 270 MB). The log stops by itself after `model: ... installed`.
+   The first start downloads the images (about 1.5 GB, most of it promptfoo) and the NLP model (about 270 MB). The log stops by itself after `model: ... installed`.
 2. Open http://127.0.0.1:8080 and wait until the banner at the top disappears.
 3. Click the upload button and upload the three PDFs in `corpus/` (you can select all three at once).
 4. Ask a question about the course, for example "Who teaches the course?".
@@ -113,40 +113,28 @@ Prices per 1M input / output tokens on OpenRouter on 27 October 2026.
 
 Reasoning models (for example `openai/gpt-5-nano`) can use up the answer length on thinking: the answer then says that the model ran out of output tokens.
 
-## Standardized test run with promptfoo
+## Automated red teaming with promptfoo
 
 Your own prompts show *that* an attack works. A [promptfoo](https://www.promptfoo.dev/) red-team run measures *how often*: it sends the same set of attacks every time, so you can compare settings. Every answer is also checked for the `LLASER-CANARY` code.
 
-The attack set is in the repo (`promptfoo/attack-sets/workshop.yaml`): about 70 attacks that try to get documents, personal data or the system prompt out of LLASER. Everyone runs exactly the same attacks, so you can also compare with the people next to you. A run takes about 7 minutes. promptfoo cloud grades the answers and needs an e-mail address once (free tier).
+The attack set is in the repo (`promptfoo/attack-sets/workshop.yaml`): 72 attacks that try to get documents, personal data or the system prompt out of LLASER. Everyone runs exactly the same attacks, so you can also compare with the people next to you. A run takes about 7 minutes and uses a little of your OpenRouter credit. promptfoo cloud grades the answers.
 
-On macOS/Linux, two scripts do the steps below for you:
-
-- `./003_promptfoo_check.sh`: step 1.
-- `./005_promptfoo_run.sh <run-name>`: steps 3 to 5. It asks for your e-mail address the first time, then reads the model, the defenses and the system prompt from the app and adds them as tags: you only choose a name, for example `./005_promptfoo_run.sh baseline`. It refuses to start while a defense is on but not yet Active, and with a name you already used: give every run a name that says what you changed, for example `nlp-0.7` or `no-rule`.
-
-1. Start promptfoo next to the app and check that it reaches LLASER (3 harmless questions, all must pass):
-   ```bash
-   docker compose --profile promptfoo up -d
-   docker compose exec promptfoo promptfoo eval -c /home/promptfoo/config/promptfooconfig.yaml
-   ```
-2. Upload the three PDFs in `corpus/` (Chat page), if you have not yet.
-3. Set your e-mail address for promptfoo cloud, once:
+1. Upload the three PDFs in `corpus/` (Chat page), if you have not yet.
+2. Set an e-mail address for promptfoo cloud, once (free tier):
    ```bash
    docker compose exec promptfoo promptfoo config set email <your-email>
    ```
-4. Run the baseline, with the defaults (both defenses off), and tag it:
-   ```bash
-   docker compose exec promptfoo promptfoo redteam eval -c /home/promptfoo/config/attack-sets/workshop.yaml --no-share \
-     --tag run=baseline --tag llm=meta-llama/llama-3.3-70b-instruct --tag defenses=off --tag prompt=default
-   ```
-5. Change **one** knob on the Controls page, then run step 4 again with tags that describe it, for example `--tag defenses=nlp`, `--tag defenses=llm`, `--tag prompt=no-rule` or `--tag llm=mistralai/mistral-nemo`.
-6. Compare the runs at http://127.0.0.1:3002 (set `PROMPTFOO_PORT` in `.env` if 3002 is taken). You can already look while a run is going: results appear as they come in.
+3. Open the **Auto red team** page in LLASER, name the run `baseline` and click **Start run**. The run records the current model, defenses and system prompt.
+4. Change **one** setting on the Controls page, wait until a defense shows Active, then start a new run with a name that says what you changed, for example `nlp-defense`, `nlp-0.7`, `no-rule` or `mistral`.
+5. Compare the runs in the table: how many attacks got through, per setting. **Report** and **Answers** open the details in promptfoo (http://127.0.0.1:3002; set `PROMPTFOO_PORT` in `.env` if 3002 is taken).
 
-A run uses a little of your OpenRouter credit. With a defense on, blocked attacks show up on the Alerts page; you do not have to review them for the run.
+The page refuses a name you already used, a defense that is on but not yet Active, and a second run while one is going. With a defense on, blocked attacks show up on the Alerts page; you do not have to review them for the run.
 
-Time left? `promptfoo/attack-sets/full.yaml` (`./005_promptfoo_run.sh --full <run-name>`) has about 216 attacks of 11 types, including multi-turn attacks, and takes 45-60 minutes.
+Checking a change quickly? The **Quick check** set has 12 attacks and takes about a minute; compare settings with the workshop set, which has more attacks. Time left? The **Full** set has 216 attacks of 11 types, including multi-turn attacks, and takes 45-60 minutes.
 
-Stop promptfoo with `docker compose --profile promptfoo down`; the runs stay in the `promptfoo-data` volume.
+On macOS/Linux, the same works from the terminal: `./003_promptfoo_check.sh` checks that promptfoo reaches LLASER, `./005_promptfoo_run.sh <run-name>` (`--quick` or `--full` for the other sets) starts a run.
+
+The runs stay in the `promptfoo-data` volume when you stop the app; `docker compose down -v` deletes them too.
 
 ## What is sent where
 
@@ -175,13 +163,14 @@ Do not upload confidential documents.
 | Windows: Docker does not start | Turn on WSL 2 and virtualization in the BIOS/UEFI. Windows on Arm: Docker Desktop is Early Access there. |
 | Image pull too slow at the venue | Ask for the USB stick. Find your architecture with `docker version --format '{{.Server.Arch}}'` (amd64 or arm64), then run `docker load -i llaser-<arch>.tar`. The app still needs internet for OpenRouter. |
 
-Stop the app: `docker compose down`. Reset everything (documents, chat memory, the installed model): `docker compose down -v`. The next `docker compose up -d` downloads the model again.
+Stop the app: `docker compose down`. Reset everything (documents, chat memory, the installed model, the promptfoo runs): `docker compose down -v`. The next `docker compose up -d` downloads the model again.
 
 ## Development (macOS/Linux)
 
-- `./001_start_llaser.sh` builds the backend and frontend from the local source and starts the app, so code changes are always in the containers. `--promptfoo` also starts promptfoo; `--no-cache` forces a full rebuild; `--no-build` starts the existing images.
+- `./001_start_llaser.sh` builds the backend and frontend from the local source and starts the app, so code changes are always in the containers. promptfoo starts with it. `--no-cache` forces a full rebuild; `--no-build` starts the existing images.
 - `./002_stop_llaser.sh` stops everything, promptfoo included. `--reset` also deletes the volumes (documents, chat memory, NLP model, promptfoo runs).
-- `./004_promptfoo_generate.sh [--full]` (hosts only) regenerates an attack set from `promptfoo/redteam.yaml` or `promptfoo/redteam-full.yaml` into `promptfoo/attack-sets/`, without the generator's e-mail address. Commit the result. Runs on the old set no longer compare with runs on the new one.
+- The **Auto red team** page starts runs through the `promptfoo-runner` service (`promptfoo/runner.mjs`): it runs the same command as `./005_promptfoo_run.sh`, so promptfoo cloud grades the answers. It has no published port; only the backend calls it. Its log: `docker compose logs promptfoo-runner`.
+- `./004_promptfoo_generate.sh [--quick | --full]` (hosts only) regenerates an attack set from `promptfoo/redteam-quick.yaml`, `promptfoo/redteam.yaml` or `promptfoo/redteam-full.yaml` into `promptfoo/attack-sets/`, without the generator's e-mail address. Commit the result. Runs on the old set no longer compare with runs on the new one.
 
 ## Licences
 

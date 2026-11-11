@@ -16,7 +16,7 @@ ensure_promptfoo_running
 echo "Sending 3 harmless questions to LLASER..."
 if in_promptfoo promptfoo eval -c "$CONFIG_DIR/promptfooconfig.yaml" --no-share --no-progress-bar; then
   echo
-  echo "promptfoo reaches LLASER. Next: ./004_promptfoo_generate.sh"
+  echo "promptfoo reaches LLASER. Next: ./005_promptfoo_run.sh baseline"
 else
   echo
   echo "The check failed. If an answer says 'query blocked', switch the defenses off and run this again."

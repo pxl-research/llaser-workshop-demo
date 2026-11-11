@@ -2,7 +2,7 @@
 # Shared helpers for the 00x_promptfoo_*.sh scripts. Source it, do not run it.
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-COMPOSE=(docker compose --project-directory "$ROOT_DIR" --profile promptfoo)
+COMPOSE=(docker compose --project-directory "$ROOT_DIR")
 
 # The promptfoo folder of the repo: ./promptfoo on the host, mounted read-only in the container.
 HOST_CONFIG_DIR="$ROOT_DIR/promptfoo"
@@ -11,7 +11,7 @@ CONFIG_DIR=/home/promptfoo/config
 DATA_DIR=/home/promptfoo/.promptfoo
 
 # The attack sets are generated once by the workshop hosts and committed to the repo:
-# "workshop" (short, from redteam.yaml) and "full" (from redteam-full.yaml).
+# "quick" (from redteam-quick.yaml), "workshop" (from redteam.yaml) and "full" (from redteam-full.yaml).
 # Both helpers return a path relative to the promptfoo folder.
 attack_set_file() {
   local set_name="$1"
@@ -20,11 +20,11 @@ attack_set_file() {
 
 redteam_config_file() {
   local set_name="$1"
-  if [[ "$set_name" == "full" ]]; then
-    echo "redteam-full.yaml"
-  else
-    echo "redteam.yaml"
-  fi
+  case "$set_name" in
+    quick) echo "redteam-quick.yaml" ;;
+    full) echo "redteam-full.yaml" ;;
+    *) echo "redteam.yaml" ;;
+  esac
 }
 
 # Runs a command inside the running promptfoo container.
@@ -45,7 +45,7 @@ ensure_promptfoo_running() {
     exit 1
   fi
   if [[ -z "$("${COMPOSE[@]}" ps --status running -q backend)" ]]; then
-    echo "LLASER is not running. Start it first: ./001_start_llaser.sh --promptfoo"
+    echo "LLASER is not running. Start it first: ./001_start_llaser.sh"
     exit 1
   fi
   if [[ -z "$("${COMPOSE[@]}" ps --status running -q promptfoo)" ]]; then

@@ -16,6 +16,8 @@ services:
       dockerfile: AI/AI-web-app/Dockerfile.local
     ports:
       - "127.0.0.1:${LLASER_PORT:-8080}:8080"
+      # The promptfoo UI goes through the frontend's nginx, which refuses other websites (see nginx.local.conf).
+      - "127.0.0.1:${PROMPTFOO_PORT:-3002}:3002"
     depends_on: [backend]
     restart: unless-stopped
   # Installs the NLP model once: takes the file from ./models (USB stick) or downloads MODEL_URL,
@@ -47,13 +49,11 @@ services:
         echo "$$f" > /model/.source
         echo "model: $$f installed"
     restart: "no"
-  # Standardized red-team runs: only starts with --profile promptfoo. UI on http://127.0.0.1:3002.
+  # Standardized red-team runs; starts with the app. UI on http://127.0.0.1:3002 and on the Red team page.
   # Reaches the backend directly on the compose network; results stay in the promptfoo-data volume.
   promptfoo:
     image: ghcr.io/promptfoo/promptfoo:0.123.1@sha256:2dfddde000886e9a0bcce799478095a2e7d1e4438a6c6669ac04001e8ae29b85
-    profiles: [promptfoo]
-    ports:
-      - "127.0.0.1:${PROMPTFOO_PORT:-3002}:3000"
+    # No published port: the browser reaches the UI through the frontend's nginx on http://127.0.0.1:3002.
     environment:
       PROMPTFOO_DISABLE_TELEMETRY: "1"
       # The version is pinned on purpose: same attacks and grading for everyone. No "newer version" banner.
@@ -64,6 +64,26 @@ services:
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
     depends_on: [backend]
+    restart: unless-stopped
+  # Starts the runs of the Automated red teaming page with promptfoo's command line, as ./005_promptfoo_run.sh
+  # does, so promptfoo cloud grades them. No published port: only the backend calls it (http://promptfoo-runner:3100).
+  promptfoo-runner:
+    image: ghcr.io/promptfoo/promptfoo:0.123.1@sha256:2dfddde000886e9a0bcce799478095a2e7d1e4438a6c6669ac04001e8ae29b85
+    command: ["node", "/home/promptfoo/config/runner.mjs"]
+    environment:
+      PROMPTFOO_DISABLE_TELEMETRY: "1"
+      PROMPTFOO_DISABLE_UPDATE: "1"
+    volumes:
+      # The same runs, settings and grading e-mail as the promptfoo service.
+      - promptfoo-data:/home/promptfoo/.promptfoo
+      - ./promptfoo:/home/promptfoo/config:ro
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3100/runs/current').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+    depends_on: [promptfoo]
     restart: unless-stopped
 volumes:
   llaser-data:

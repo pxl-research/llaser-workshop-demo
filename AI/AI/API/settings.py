@@ -49,3 +49,11 @@ DEFAULT_SYSTEM_PROMPT = (
     "refuse in one sentence and offer general information instead."
 )
 SYSTEM_PROMPT = DEFAULT_SYSTEM_PROMPT
+
+# The promptfoo service of the compose file, for the Red team page.
+# Only the backend calls its API, inside the compose network: promptfoo has no login.
+PROMPTFOO_URL = os.getenv("PROMPTFOO_URL", "http://promptfoo:3000").rstrip("/")
+# The port on which the browser opens the promptfoo UI (through the frontend's nginx), from .env.
+PROMPTFOO_UI_PORT = int(os.getenv("PROMPTFOO_PORT", "3002"))
+# The promptfoo-runner service of the compose file: starts the runs of the page (promptfoo/runner.mjs).
+PROMPTFOO_RUNNER_URL = os.getenv("PROMPTFOO_RUNNER_URL", "http://promptfoo-runner:3100").rstrip("/")

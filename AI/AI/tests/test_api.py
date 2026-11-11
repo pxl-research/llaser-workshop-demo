@@ -10,6 +10,7 @@ import types
 import unittest
 from pathlib import Path
 from unittest.mock import patch
+from urllib.parse import quote
 
 import httpx
 import requests
@@ -86,6 +87,53 @@ class MaliciousMLPromptSafetyDetector:
         }
 
 
+class FakePromptfoo:
+    """promptfoo as the backend uses it, in memory: the web server (runs, one run's table, the grading e-mail)
+    and the runner service (start a run, the current run)."""
+
+    def __init__(self, runs=(), tables=None, email="host@example.com"):
+        self.runs = list(runs)
+        self.tables = tables or {}
+        self.email = email
+        self.started = []  # the bodies the runner received
+        self.current_run = None  # what the runner reports as current
+        self.requested = []
+
+    def finish_run(self, run_id="eval-9"):
+        self.current_run.update(status="complete", progress=self.current_run["total"], run_id=run_id)
+
+    def request(self, method, url, json=None, timeout=None):
+        self.requested.append((method, url))
+        if url.startswith(settings.PROMPTFOO_RUNNER_URL):
+            return self._runner(method, url.removeprefix(settings.PROMPTFOO_RUNNER_URL), json)
+        path = url.removeprefix(settings.PROMPTFOO_URL)
+        if path == "/api/results":
+            return self._response(200, {"data": self.runs})
+        if path == "/api/user/email":
+            return self._response(200, {"email": self.email})
+        eval_id = next(i for i in self.tables if path.startswith(f"/api/eval/{quote(i, safe='')}/table"))
+        return self._response(200, self.tables[eval_id])
+
+    def _runner(self, method, path, body):
+        if method == "GET" and path == "/runs/current":
+            return self._response(200, {"run": self.current_run})
+        if method == "POST" and path == "/runs":
+            if self.current_run and self.current_run["status"] == "running":
+                return self._response(409, {"error": f"the run '{self.current_run['name']}' is still going"})
+            self.started.append(body)
+            self.current_run = {"name": body["name"], "attack_set": body["attack_set"], "status": "running",
+                                "progress": 0, "total": 72, "run_id": None, "error": None}
+            return self._response(202, {"started": body["name"]})
+        raise AssertionError(f"unexpected runner request {method} {path}")
+
+    @staticmethod
+    def _response(status, body):
+        def raise_for_status():
+            if status >= 400:
+                raise requests.HTTPError(f"HTTP {status}")
+        return types.SimpleNamespace(status_code=status, raise_for_status=raise_for_status, json=lambda: body)
+
+
 def install_api_dependency_stubs():
     rag_module = types.ModuleType("AI.API.RAG")
     rag_module.RAG = FakeSystem
@@ -104,7 +152,7 @@ def install_api_dependency_stubs():
 
 install_api_dependency_stubs()
 api_module = importlib.import_module("AI.API.API")
-from AI.API import alerts, readiness, services, settings  # noqa: E402
+from AI.API import alerts, readiness, redteam, services, settings  # noqa: E402
 from AI.API.exceptions import DocumentProcessingError  # noqa: E402
 
 
@@ -1079,6 +1127,244 @@ class ApiTestCase(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(response.status_code, 422)
         self.assertIn("8000", response.json()["detail"])
+
+
+    # --- Automated red teaming page: the backend talks to promptfoo, inside the compose network ---
+
+    @staticmethod
+    def _run(eval_id, created_at, description=None, red_team=True, tests=72):
+        return {"evalId": eval_id, "createdAt": created_at, "description": description,
+                "isRedteam": red_team, "numTests": tests, "passRate": 90.0}
+
+    @staticmethod
+    def _table(tags=None, failed=5, errors=0):
+        return {
+            "table": {"head": {"prompts": [{"metrics": {
+                "testPassCount": 67, "testFailCount": failed, "testErrorCount": errors}}]},
+                "body": [{"outputs": [{"text": "LLASER's answer must not reach the page"}]}]},
+            "config": {"tags": tags} if tags is not None else {},
+        }
+
+    async def _start(self, promptfoo, name="nlp-defense", attack_set="workshop"):
+        with patch.object(redteam.requests, "request", side_effect=promptfoo.request):
+            return await self.client.post("/redteam/runs", json={"name": name, "attack_set": attack_set})
+
+    async def _current(self, promptfoo):
+        with patch.object(redteam.requests, "request", side_effect=promptfoo.request):
+            return await self.client.get("/redteam/runs/current")
+
+    async def _list(self, promptfoo):
+        with patch.object(redteam.requests, "request", side_effect=promptfoo.request):
+            return await self.client.get("/redteam/runs")
+
+    async def test_redteam_runs_lists_red_team_runs_newest_first(self):
+        promptfoo = FakePromptfoo(
+            runs=[
+                self._run("eval-old", 1000, "baseline"),
+                self._run("eval-smoke", 3000, red_team=False, tests=3),
+                self._run("eval-new", 2000, "nlp-defense"),
+            ],
+            tables={
+                "eval-old": self._table({"run": "baseline", "attack_set": "workshop",
+                                         "llm": "meta-llama/llama-3.3-70b-instruct", "defenses": "off"}),
+                "eval-new": self._table({"run": "nlp-defense", "attack_set": "workshop", "defenses": "nlp",
+                                         "nlp_threshold": 0.7}, failed=2, errors=1),
+            },
+        )
+        response = await self._list(promptfoo)
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["promptfoo_ui_port"], settings.PROMPTFOO_UI_PORT)
+        self.assertEqual([run["name"] for run in body["runs"]], ["nlp-defense", "baseline"])
+        self.assertEqual(body["runs"][0], {
+            "id": "eval-new",
+            "name": "nlp-defense",
+            "created_at": 2000,
+            "attack_set": "workshop",
+            "settings": {"defenses": "nlp", "nlp_threshold": "0.7"},
+            "attacks": 72,
+            "got_through": 2,
+            "errors": 1,
+        })
+
+    async def test_redteam_runs_never_passes_on_attacks_or_answers(self):
+        response = await self._list(FakePromptfoo([self._run("eval-1", 1000, "baseline")], {"eval-1": self._table({})}))
+
+        self.assertNotIn("LLASER's answer", response.text)
+
+    async def test_redteam_run_without_name_or_tags_is_still_listed(self):
+        response = await self._list(FakePromptfoo([self._run("eval-cli", 1000)], {"eval-cli": self._table()}))
+
+        run = response.json()["runs"][0]
+        self.assertEqual((run["name"], run["attack_set"], run["settings"]), ("eval-cli", None, {}))
+
+    async def test_redteam_runs_encodes_the_run_id_in_the_path(self):
+        odd_id = "eval-1/../../api/eval/job?x=1"
+        promptfoo = FakePromptfoo([self._run(odd_id, 1000, "odd")], {odd_id: self._table({})})
+        await self._list(promptfoo)
+
+        self.assertIn(
+            ("GET", f"{settings.PROMPTFOO_URL}/api/eval/eval-1%2F..%2F..%2Fapi%2Feval%2Fjob%3Fx%3D1/table?limit=1"),
+            promptfoo.requested,
+        )
+
+    async def test_redteam_runs_says_how_to_start_promptfoo_when_it_is_down(self):
+        with patch.object(redteam.requests, "request", side_effect=requests.ConnectionError("no promptfoo")):
+            response = await self.client.get("/redteam/runs")
+
+        self.assertEqual(response.status_code, 503)
+        self.assertIn("docker compose up -d", response.json()["detail"])
+
+    async def test_redteam_runs_rejects_an_unexpected_promptfoo_format(self):
+        response = await self._list(FakePromptfoo([self._run("eval-1", 1000, "baseline")], {"eval-1": {"table": {}}}))
+
+        self.assertEqual(response.status_code, 503)
+        self.assertNotIn("Traceback", response.text)
+
+    async def test_redteam_runs_rejects_a_non_json_answer(self):
+        def request(method, url, json=None, timeout=None):
+            def not_json():
+                raise ValueError("no JSON")
+            return types.SimpleNamespace(status_code=200, raise_for_status=lambda: None, json=not_json)
+
+        with patch.object(redteam.requests, "request", side_effect=request):
+            response = await self.client.get("/redteam/runs")
+
+        self.assertEqual(response.status_code, 503)
+
+    async def test_start_run_asks_the_runner_with_name_attack_set_and_settings(self):
+        promptfoo = FakePromptfoo()
+
+        response = await self._start(promptfoo, name="baseline-2")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"name": "baseline-2", "attack_set": "workshop", "status": "running",
+                                           "progress": 0, "total": 72, "run_id": None, "error": None})
+        self.assertEqual(promptfoo.started, [{"name": "baseline-2", "attack_set": "workshop", "tags": {
+            "llm": settings.LLM, "defenses": "off", "prompt": "default"}}])
+
+    async def test_start_run_accepts_the_quick_attack_set(self):
+        promptfoo = FakePromptfoo()
+
+        response = await self._start(promptfoo, name="check-1", attack_set="quick")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(promptfoo.started[0]["attack_set"], "quick")
+
+    async def test_start_run_records_defenses_and_a_custom_prompt(self):
+        settings.USE_NLP_DEFENSE = True
+        services._nlp_defense_status = "ready"
+        settings.USE_HOMEBREW = True
+        services._homebrew_status = "ready"
+        services._homebrew_backend = "openrouter"
+        settings.SYSTEM_PROMPT = "Only answer about the course.\n{context}"
+        promptfoo = FakePromptfoo()
+
+        await self._start(promptfoo)
+
+        self.assertEqual(promptfoo.started[0]["tags"], {
+            "llm": settings.LLM, "defenses": "llm+nlp", "prompt": "custom",
+            "nlp_threshold": "0.5", "llm_defense_backend": "openrouter",
+        })
+
+    async def test_start_run_refuses_while_a_defense_is_not_active(self):
+        settings.USE_HOMEBREW = True
+        services._homebrew_status = "loading"
+        promptfoo = FakePromptfoo()
+
+        response = await self._start(promptfoo)
+
+        self.assertEqual(response.status_code, 409)
+        self.assertIn("the LLM defense is loading", response.json()["detail"])
+        self.assertEqual(promptfoo.started, [])
+
+    async def test_start_run_refuses_a_name_already_used(self):
+        promptfoo = FakePromptfoo(runs=[self._run("eval-1", 1000, "baseline")])
+
+        response = await self._start(promptfoo, name="baseline")
+
+        self.assertEqual(response.status_code, 409)
+        self.assertIn("already is a run named 'baseline'", response.json()["detail"])
+        self.assertEqual(promptfoo.started, [])
+
+    async def test_start_run_refuses_while_another_run_is_going_then_allows_it(self):
+        promptfoo = FakePromptfoo()
+        await self._start(promptfoo, name="first")
+
+        second = await self._start(promptfoo, name="second")
+        self.assertEqual(second.status_code, 409)
+        self.assertIn("'first' is still going", second.json()["detail"])
+
+        promptfoo.finish_run()
+        third = await self._start(promptfoo, name="third")
+        self.assertEqual(third.status_code, 200)
+        self.assertEqual([body["name"] for body in promptfoo.started], ["first", "third"])
+
+    async def test_start_run_needs_a_grading_email_but_never_returns_it(self):
+        without_email = FakePromptfoo(email=None)
+        response = await self._start(without_email)
+        self.assertEqual(response.status_code, 409)
+        self.assertIn("promptfoo config set email", response.json()["detail"])
+        self.assertEqual(without_email.started, [])
+
+        with_email = FakePromptfoo(email="host@example.com")
+        started = await self._start(with_email)
+        current = await self._current(with_email)
+        self.assertNotIn("host@example.com", started.text + current.text)
+        self.assertNotIn("host@example.com", json.dumps(with_email.started))
+
+    async def test_start_run_validates_the_request(self):
+        for body in (
+            {"name": "../etc", "attack_set": "workshop"},
+            {"name": "a b", "attack_set": "workshop"},
+            {"name": "--config", "attack_set": "workshop"},
+            {"name": "", "attack_set": "workshop"},
+            {"name": "x" * 65, "attack_set": "workshop"},
+            {"name": "ok", "attack_set": "../../app/data/secret"},
+            {"name": "ok", "attack_set": "workshop", "config": {"providers": ["exec:id"]}},
+        ):
+            with self.subTest(body=body):
+                response = await self.client.post("/redteam/runs", json=body)
+                self.assertEqual(response.status_code, 422)
+
+    async def test_start_run_when_promptfoo_or_the_runner_is_down(self):
+        with patch.object(redteam.requests, "request", side_effect=requests.ConnectionError("no promptfoo")):
+            response = await self.client.post("/redteam/runs", json={"name": "x"})
+        self.assertEqual(response.status_code, 503)
+
+        promptfoo = FakePromptfoo()
+
+        def runner_down(method, url, json=None, timeout=None):
+            if url.startswith(settings.PROMPTFOO_RUNNER_URL):
+                raise requests.ConnectionError("no runner")
+            return promptfoo.request(method, url, json=json, timeout=timeout)
+
+        with patch.object(redteam.requests, "request", side_effect=runner_down):
+            response = await self.client.post("/redteam/runs", json={"name": "x"})
+        self.assertEqual(response.status_code, 503)
+        self.assertIn("docker compose up -d", response.json()["detail"])
+
+    async def test_current_run_follows_the_runner(self):
+        promptfoo = FakePromptfoo()
+        self.assertEqual((await self._current(promptfoo)).json(), {"job": None})
+
+        await self._start(promptfoo, name="baseline")
+        promptfoo.current_run["progress"] = 30
+        running = (await self._current(promptfoo)).json()["job"]
+        self.assertEqual((running["status"], running["progress"], running["total"]), ("running", 30, 72))
+
+        promptfoo.finish_run("eval-9")
+        done = (await self._current(promptfoo)).json()["job"]
+        self.assertEqual((done["status"], done["progress"], done["run_id"]), ("complete", 72, "eval-9"))
+
+    async def test_current_run_rejects_an_unexpected_runner_answer(self):
+        promptfoo = FakePromptfoo()
+        promptfoo.current_run = {"name": "x", "status": "flying"}
+
+        response = await self._current(promptfoo)
+
+        self.assertEqual(response.status_code, 503)
 
 
 if __name__ == "__main__":

@@ -131,6 +131,7 @@
 
   .nav-button {
     flex: 1;
-    padding-inline: 12px;
+    padding-inline: 8px;
+    white-space: nowrap;
   }
 }

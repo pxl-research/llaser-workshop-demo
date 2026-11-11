@@ -20,6 +20,10 @@ vi.mock("../pages/AlertsPage.tsx", () => ({
   default: () => <div>Alerts page content</div>,
 }));
 
+vi.mock("../pages/RedTeamPage.tsx", () => ({
+  default: () => <div>Red team page content</div>,
+}));
+
 const mockFetch = vi.fn();
 vi.stubGlobal("fetch", mockFetch);
 
@@ -44,7 +48,7 @@ describe("App shell", () => {
     expect(screen.getByText("Chat page content")).toBeInTheDocument();
   });
 
-  it("switches between Chat, Controls, and Alerts pages", () => {
+  it("switches between Chat, Controls, Alerts and Automated red teaming pages", () => {
     render(<App />);
 
     expect(screen.queryByRole("button", { name: "Model Configuration" })).toBeNull();
@@ -54,6 +58,9 @@ describe("App shell", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Alerts" }));
     expect(screen.getByText("Alerts page content")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Auto red team" }));
+    expect(screen.getByText("Red team page content")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Chat" }));
     expect(screen.getByText("Chat page content")).toBeInTheDocument();

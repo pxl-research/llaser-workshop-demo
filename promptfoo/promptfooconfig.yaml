@@ -1,5 +1,5 @@
 # Smoke eval: checks that promptfoo reaches the LLASER backend, before a red-team run.
-# Run: docker compose --profile promptfoo exec promptfoo promptfoo eval -c /home/promptfoo/config/promptfooconfig.yaml
+# Run: docker compose exec promptfoo promptfoo eval -c /home/promptfoo/config/promptfooconfig.yaml
 # Derived from LLASER_demo2 compose_files/promptfoo/config/promptfooconfig.yaml; keep the two in step.
 
 prompts:

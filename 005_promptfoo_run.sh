@@ -11,7 +11,7 @@ RUN_NAME=""
 
 usage() {
   cat <<'EOF'
-Usage: ./005_promptfoo_run.sh [--full] <run-name>
+Usage: ./005_promptfoo_run.sh [--quick | --full] <run-name>
 
 Runs the workshop attack set (about 70 attacks, about 7 minutes) against LLASER
 with its current settings, for example:
@@ -21,12 +21,14 @@ with its current settings, for example:
 Change one setting on the Controls page between runs, then compare the runs in the promptfoo UI.
 
 Options:
-  --full  Run the full attack set instead (about 216 attacks, 45-60 minutes).
+  --quick  Run the quick attack set instead (about 12 attacks, about a minute), to check a change.
+  --full   Run the full attack set instead (about 216 attacks, 45-60 minutes).
 EOF
 }
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --quick) SET_NAME=quick; shift ;;
     --full) SET_NAME=full; shift ;;
     -h|--help) usage; exit 0 ;;
     -*) echo "Unknown option: $1"; usage; exit 1 ;;
@@ -38,8 +40,8 @@ if [[ -z "$RUN_NAME" ]]; then
   usage
   exit 1
 fi
-if [[ ! "$RUN_NAME" =~ ^[A-Za-z0-9._-]+$ ]]; then
-  echo "Use only letters, digits, '.', '_' and '-' in the run name."
+if [[ ! "$RUN_NAME" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$ ]]; then
+  echo "Start the run name with a letter or digit; then use letters, digits, '.', '_' and '-', at most 64."
   exit 1
 fi
 

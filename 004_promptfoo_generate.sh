@@ -10,9 +10,10 @@ SET_NAME=workshop
 
 usage() {
   cat <<'EOF'
-Usage: ./004_promptfoo_generate.sh [--full]
+Usage: ./004_promptfoo_generate.sh [--quick | --full]
 
 For the workshop hosts. Generates an attack set and saves it in the repo:
+  --quick    promptfoo/redteam-quick.yaml -> promptfoo/attack-sets/quick.yaml     (about 12 tests)
   (default)  promptfoo/redteam.yaml       -> promptfoo/attack-sets/workshop.yaml  (about 70 tests)
   --full     promptfoo/redteam-full.yaml  -> promptfoo/attack-sets/full.yaml      (about 216 tests)
 
@@ -23,6 +24,7 @@ EOF
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --quick) SET_NAME=quick; shift ;;
     --full) SET_NAME=full; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown option: $1"; usage; exit 1 ;;

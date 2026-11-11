@@ -4,22 +4,20 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ENV_FILE="$ROOT_DIR/.env"
-WITH_PROMPTFOO=0
 SKIP_BUILD=0
 NO_CACHE=0
 
 usage() {
   cat <<'EOF'
-Usage: ./001_start_llaser.sh [--promptfoo] [--no-build] [--no-cache]
+Usage: ./001_start_llaser.sh [--no-build] [--no-cache]
 
 Builds the backend and frontend images from the local source and (re)starts the
-LLASER workshop app. Every start rebuilds, so code changes are always in the
+LLASER workshop app, promptfoo included. Every start rebuilds, so code changes are always in the
 running containers; unchanged code reuses the Docker layer cache and is quick.
 
 Options:
-  --promptfoo  Also start promptfoo (UI on http://127.0.0.1:3002).
-  --no-build   Start the existing images without rebuilding.
-  --no-cache   Force a full rebuild (ignore the Docker layer cache).
+  --no-build  Start the existing images without rebuilding.
+  --no-cache  Force a full rebuild (ignore the Docker layer cache).
 EOF
 }
 
@@ -45,10 +43,6 @@ env_value() {
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --promptfoo)
-      WITH_PROMPTFOO=1
-      shift
-      ;;
     --no-build)
       SKIP_BUILD=1
       shift
@@ -78,9 +72,6 @@ require_file "$ENV_FILE" \
   "Copy .env.example to .env and fill in the empty values (see README.md, step 3)."
 
 COMPOSE=(docker compose --project-directory "$ROOT_DIR")
-if [[ "$WITH_PROMPTFOO" -eq 1 ]]; then
-  COMPOSE+=(--profile promptfoo)
-fi
 
 if [[ "$SKIP_BUILD" -eq 0 ]]; then
   echo "Building backend and frontend images from local source..."
@@ -98,6 +89,9 @@ echo "Starting LLASER..."
 # Images are only pulled when missing locally (promptfoo, or --no-build without a local build),
 # never over the images just built.
 "${COMPOSE[@]}" up -d --no-build
+# The runner's code (promptfoo/runner.mjs) is mounted, not built into an image: restart it so a change is
+# picked up. A run it was doing stops; start it again from the page.
+"${COMPOSE[@]}" restart promptfoo-runner
 
 LLASER_PORT="$(env_value LLASER_PORT 8080)"
 PROMPTFOO_PORT="$(env_value PROMPTFOO_PORT 3002)"
@@ -121,14 +115,9 @@ LLASER workshop app is running.
 App:              ${APP_URL}
 Readiness:        ${APP_URL}/api/ready
 NLP model install: docker compose logs -f model-init
-EOF
-
-if [[ "$WITH_PROMPTFOO" -eq 1 ]]; then
-  cat <<EOF
 promptfoo UI:     http://127.0.0.1:${PROMPTFOO_PORT}
-Next:             ./003_promptfoo_check.sh, then 004 and 005 (see README.md)
+Red team runs:    ./003_promptfoo_check.sh, then ./005_promptfoo_run.sh baseline (see README.md)
 EOF
-fi
 
 cat <<'EOF'
 
