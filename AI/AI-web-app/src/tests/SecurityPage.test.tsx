@@ -11,6 +11,7 @@ const securityConfig = {
   homebrew_status: "off" as const,
   nlp_defense_status: "off" as const,
   nlp_confidence_threshold: 0.8,
+  safe_answer_rendering: false,
 };
 
 function renderSecurityPage(overrides: Record<string, unknown> = {}) {
@@ -70,6 +71,29 @@ describe("SecurityPage", () => {
 
     expect(await screen.findByText("Active")).toBeInTheDocument();
     expect(screen.queryByText(/OpenRouter fallback/)).not.toBeInTheDocument();
+  });
+
+  it("switches safe answer rendering on at once, without Apply", async () => {
+    renderSecurityPage();
+
+    const toggle = await screen.findByRole("checkbox", { name: /Safe answer rendering/ });
+    expect(toggle).not.toBeChecked();
+    fireEvent.click(toggle);
+
+    await waitFor(() => {
+      expect(mockFetch.mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(1);
+    });
+    const [url, init] = mockFetch.mock.calls.find(([, init]) => init?.method === "POST")!;
+    expect(url).toBe("/api/security-config");
+    expect(JSON.parse(init.body)).toEqual({ safe_answer_rendering: true });
+    expect(screen.queryByRole("button", { name: "Apply changes" })).not.toBeInTheDocument();
+  });
+
+  it("shows safe answer rendering as Active when it is on", async () => {
+    renderSecurityPage({ safe_answer_rendering: true });
+
+    expect(await screen.findByRole("checkbox", { name: /Safe answer rendering/ })).toBeChecked();
+    expect(screen.getByText("Active")).toBeInTheDocument();
   });
 
   it("does not show the SonarQube verification", async () => {

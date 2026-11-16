@@ -102,6 +102,7 @@ def get_security_config():
         homebrew_backend=services.get_homebrew_backend(),
         nlp_defense_error=nlp_error,
         nlp_confidence_threshold=threshold,
+        safe_answer_rendering=settings.SAFE_ANSWER_RENDERING,
     )
 
 
@@ -134,6 +135,10 @@ def update_security_config(request: SecurityConfigUpdateRequest):
                 logger.info("NLP threshold set to %s", request.nlp_confidence_threshold)
         except Exception:
             logger.warning("Could not update NLP threshold: detector not available")
+
+    if request.safe_answer_rendering is not None:
+        settings.SAFE_ANSWER_RENDERING = request.safe_answer_rendering
+        logger.info("SAFE_ANSWER_RENDERING set to %s", request.safe_answer_rendering)
 
     return get_security_config()
 

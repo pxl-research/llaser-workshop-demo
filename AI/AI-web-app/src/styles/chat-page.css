@@ -159,6 +159,23 @@
   margin-bottom: 0;
 }
 
+/* Safe answer rendering: an image from an answer shows as its address, not as a picture. */
+.answer-blocked-image {
+  display: inline-block;
+  padding: 2px 6px;
+  font-size: 0.85em;
+  color: #64748b;
+  background: #f1f5f9;
+  border: 1px dashed #cbd5e1;
+  border-radius: 4px;
+  overflow-wrap: anywhere;
+}
+
+.answer-link-site {
+  font-size: 0.85em;
+  color: #64748b;
+}
+
 .upload-progress {
   display: grid;
   gap: 0.4rem;

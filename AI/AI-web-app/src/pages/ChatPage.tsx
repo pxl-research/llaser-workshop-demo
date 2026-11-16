@@ -4,10 +4,9 @@ import { fetchAcceptedAnswer, fetchAlertStatus, sendMessageToAPI, type AlertStat
 import { deleteDocument, listDocuments, uploadDocument } from "../services/DocumentService";
 import { fetchSecurityConfig, type DefenseStatus } from "../services/security";
 import { useSystemReadiness } from "../components/SystemReadinessContext";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import sendIconSrc from "../assets/up-arrow.png";
 import { createLoadingMessage, scrollParentToBottom } from "./chatUtils";
+import AnswerMarkdown from "./AnswerMarkdown";
 import "../styles/chat-page.css";
 
 interface Message {
@@ -42,7 +41,7 @@ const uploadLabel = (percent: number, elapsed: number) =>
 const uploadValue = (percent: number, elapsed: number) =>
   percent < 100 ? percent : Math.min(95, Math.round((elapsed / PROCESSING_ESTIMATE_SECONDS) * 100));
 
-function ResponseBody({ msg, now }: Readonly<{ msg: Message; now: number }>) {
+function ResponseBody({ msg, now, safe }: Readonly<{ msg: Message; now: number; safe: boolean }>) {
   if (msg.upload) {
     const elapsed = (now - msg.upload.startedAt) / 1000;
     return (
@@ -63,10 +62,37 @@ function ResponseBody({ msg, now }: Readonly<{ msg: Message; now: number }>) {
       </output>
     );
   }
-  return <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.text}</ReactMarkdown>;
+  return <AnswerMarkdown text={msg.text} safe={safe} />;
 }
 
-function ChatPage() {
+// One badge per protection that is on, under the chat.
+function DefenseBadge({ name, status }: Readonly<{ name: string; status: DefenseStatus }>) {
+  return (
+    <span className={`chat-defense-badge chat-defense-badge--${status}`}>
+      {name}: {status === "ready" ? "active" : status}
+    </span>
+  );
+}
+
+function DefenseBar({
+  defenses,
+  safeRendering,
+}: Readonly<{ defenses: { homebrew: DefenseStatus; nlp: DefenseStatus }; safeRendering: boolean }>) {
+  const noPromptDefenses = defenses.homebrew === "off" && defenses.nlp === "off";
+  return (
+    <div className="chat-defense-bar">
+      {noPromptDefenses && (
+        <span className="chat-defense-badge chat-defense-badge--off">No prompt defenses active</span>
+      )}
+      {defenses.homebrew !== "off" && <DefenseBadge name="LLM Defense" status={defenses.homebrew} />}
+      {defenses.nlp !== "off" && <DefenseBadge name="NLP Defense" status={defenses.nlp} />}
+      {safeRendering && <DefenseBadge name="Safe answer rendering" status="ready" />}
+    </div>
+  );
+}
+
+// isVisible: the App keeps the chat mounted while another page shows, so the chat knows when it is back.
+function ChatPage({ isVisible = true }: Readonly<{ isVisible?: boolean }>) {
   const [message, setMessage] = useState<string>("");
   const [chat, setChat] = useState<Message[]>([]);
   const [isUploading, setIsUploading] = useState(false);
@@ -80,6 +106,8 @@ function ChatPage() {
     homebrew: "off",
     nlp: "off",
   });
+  // null until the backend tells: answers then show safely, but no badge claims the setting is on.
+  const [safeRendering, setSafeRendering] = useState<boolean | null>(null);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const hasMessages = chat.length > 0;
@@ -87,15 +115,20 @@ function ChatPage() {
 
   const loadDefenseStatus = useCallback(() => {
     fetchSecurityConfig()
-      .then((cfg) => setDefenses({ homebrew: cfg.homebrew_status, nlp: cfg.nlp_defense_status }))
+      .then((cfg) => {
+        setDefenses({ homebrew: cfg.homebrew_status, nlp: cfg.nlp_defense_status });
+        setSafeRendering(cfg.safe_answer_rendering);
+      })
       .catch(() => {});
   }, []);
 
+  // Reload when the chat shows again (a setting may have changed on the Controls page) and every 10 seconds.
   useEffect(() => {
+    if (!isVisible) return;
     loadDefenseStatus();
     const id = window.setInterval(loadDefenseStatus, 10000);
     return () => window.clearInterval(id);
-  }, [loadDefenseStatus]);
+  }, [isVisible, loadDefenseStatus]);
   const loadDocuments = useCallback(() => {
     listDocuments().then(setDocuments).catch(() => {});
   }, []);
@@ -310,7 +343,7 @@ function ChatPage() {
                 {msg.sender === "response" ? (
                   <div className="assistant-message">
                     <div className="message-bubble message-bubble--response">
-                      <ResponseBody msg={msg} now={now} />
+                      <ResponseBody msg={msg} now={now} safe={safeRendering !== false} />
                     </div>
                   </div>
                 ) : (
@@ -321,24 +354,7 @@ function ChatPage() {
             <div ref={chatEndRef} />
           </div>
 
-          <div className="chat-defense-bar">
-            {defenses.homebrew === "off" && defenses.nlp === "off" ? (
-              <span className="chat-defense-badge chat-defense-badge--off">No prompt defenses active</span>
-            ) : (
-              <>
-                {defenses.homebrew !== "off" && (
-                  <span className={`chat-defense-badge chat-defense-badge--${defenses.homebrew}`}>
-                    LLM Defense: {defenses.homebrew === "ready" ? "active" : defenses.homebrew}
-                  </span>
-                )}
-                {defenses.nlp !== "off" && (
-                  <span className={`chat-defense-badge chat-defense-badge--${defenses.nlp}`}>
-                    NLP Defense: {defenses.nlp === "ready" ? "active" : defenses.nlp}
-                  </span>
-                )}
-              </>
-            )}
-          </div>
+          <DefenseBar defenses={defenses} safeRendering={safeRendering === true} />
 
           <form className="chat-input-bar" onSubmit={handleSubmit}>
             <input

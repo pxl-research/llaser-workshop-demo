@@ -106,7 +106,7 @@ function App() {
       <main className="app-main">
         <div hidden={currentPage !== 'chat'}>
           <ErrorBoundary>
-            <ChatPage />
+            <ChatPage isVisible={currentPage === 'chat'} />
           </ErrorBoundary>
         </div>
         {currentPage === 'security' && (

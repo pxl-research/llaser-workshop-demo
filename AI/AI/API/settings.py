@@ -31,6 +31,9 @@ HOMEBREW_TIMEOUT_SECONDS = float(os.getenv("HOMEBREW_TIMEOUT_SECONDS", "10"))
 # Not Qwen3.6 on OpenRouter: its reasoning is on by default and can use up the 100-token reply.
 FALLBACK_DEFENSE_MODEL = "qwen/qwen3-30b-a3b-instruct-2507"
 USE_NLP_DEFENSE = env_flag("USE_NLP_DEFENSE")
+# Off: the chat shows answers as written, so an image in an answer is loaded from any address.
+# Off by default on purpose: the workshop demonstrates that leak, then switches this on (Controls page).
+SAFE_ANSWER_RENDERING = False
 RAG_MAX_OUTPUT_TOKENS = 2048
 # Newest Q&A turns of a chat session sent to the chat model as real conversation history.
 CHAT_HISTORY_TURNS = 6

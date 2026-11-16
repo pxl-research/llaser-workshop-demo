@@ -11,6 +11,7 @@ export type SecurityConfig = {
   homebrew_backend?: "spark" | "openrouter" | null;
   nlp_defense_error?: string | null;
   nlp_confidence_threshold: number;
+  safe_answer_rendering: boolean;
 };
 
 type SecurityConfigUpdate = Partial<SecurityConfig>;

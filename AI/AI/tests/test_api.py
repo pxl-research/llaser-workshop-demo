@@ -176,6 +176,7 @@ class ApiTestCase(unittest.IsolatedAsyncioTestCase):
         services._nlp_defense_error = None
         settings.USE_HOMEBREW = False
         settings.USE_NLP_DEFENSE = False
+        settings.SAFE_ANSWER_RENDERING = False
         settings.SYSTEM_PROMPT = settings.DEFAULT_SYSTEM_PROMPT
         readiness.readiness.reset()
         readiness.readiness.mark_ready()
@@ -1088,6 +1089,29 @@ class ApiTestCase(unittest.IsolatedAsyncioTestCase):
             json={"nlp_confidence_threshold": 1.5},
         )
         self.assertEqual(response.status_code, 422)
+
+    async def test_safe_answer_rendering_is_off_until_switched_on(self):
+        # Off by default: the workshop first demonstrates the leak.
+        before = (await self.client.get("/security-config")).json()
+        response = await self.client.post("/security-config", json={"safe_answer_rendering": True})
+
+        self.assertFalse(before["safe_answer_rendering"])
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["safe_answer_rendering"])
+        self.assertTrue((await self.client.get("/security-config")).json()["safe_answer_rendering"])
+
+    async def test_safe_answer_rendering_stays_when_another_setting_changes(self):
+        settings.SAFE_ANSWER_RENDERING = True
+
+        response = await self.client.post("/security-config", json={"use_nlp_defense": False})
+
+        self.assertTrue(response.json()["safe_answer_rendering"])
+
+    async def test_safe_answer_rendering_accepts_only_true_or_false(self):
+        response = await self.client.post("/security-config", json={"safe_answer_rendering": "maybe"})
+
+        self.assertEqual(response.status_code, 422)
+        self.assertFalse(settings.SAFE_ANSWER_RENDERING)
 
     async def test_system_prompt_get_returns_active_and_default(self):
         settings.SYSTEM_PROMPT = "Custom {context}"

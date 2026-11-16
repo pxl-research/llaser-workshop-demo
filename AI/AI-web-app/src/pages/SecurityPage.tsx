@@ -96,15 +96,21 @@ function SecurityPage() {
     }
   };
 
-  const handleThresholdChange = async (value: number) => {
+  // For settings that apply at once, without the Apply button.
+  const applyNow = async (update: Partial<SecurityConfig>, failure: string) => {
     setError(null);
     try {
-      const updated = await updateSecurityConfig({ nlp_confidence_threshold: value });
-      setConfig(updated);
+      setConfig(await updateSecurityConfig(update));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to update threshold");
+      setError(e instanceof Error ? e.message : failure);
     }
   };
+
+  const handleThresholdChange = (value: number) =>
+    applyNow({ nlp_confidence_threshold: value }, "Failed to update threshold");
+
+  const handleSafeRenderingChange = (on: boolean) =>
+    applyNow({ safe_answer_rendering: on }, "Failed to change answer rendering");
 
   if (!config) {
     return (
@@ -125,8 +131,8 @@ function SecurityPage() {
       <div className="security-box">
         <h1 className="security-title">Controls</h1>
         <p className="security-subtitle">
-          Four knobs: the chat model, the system prompt and two prompt defenses. Changes last until
-          the app restarts.
+          Five knobs: the chat model, the system prompt, two prompt defenses and safe answer
+          rendering. Changes last until the app restarts.
         </p>
 
         {error && <p className="security-error">{error}</p>}
@@ -216,6 +222,27 @@ function SecurityPage() {
             <span className="security-slider__hint">
               Lower = more sensitive (more false positives). Higher = less sensitive (may miss attacks).
             </span>
+          </div>
+        </section>
+
+        <section className="security-group">
+          <h2 className="security-group__title">Answer Rendering</h2>
+
+          <div className="defense-row">
+            <label className="security-toggle">
+              <input
+                type="checkbox"
+                checked={config.safe_answer_rendering}
+                onChange={(e) => void handleSafeRenderingChange(e.target.checked)}
+              />
+              <span className="security-toggle__label">Safe answer rendering</span>
+              <span className="security-toggle__desc">
+                Treats LLASER's answers as untrusted: images in an answer are not loaded (their address
+                could carry data to another server) and links open in a new tab, with their site shown.
+                Applies at once.
+              </span>
+            </label>
+            <StatusBadge status={config.safe_answer_rendering ? "ready" : "off"} />
           </div>
         </section>
       </div>

@@ -58,12 +58,14 @@ class SecurityConfigResponse(BaseModel):
     homebrew_backend: Optional[Literal["spark", "openrouter"]] = None
     nlp_defense_error: Optional[str] = None
     nlp_confidence_threshold: float
+    safe_answer_rendering: bool
 
 
 class SecurityConfigUpdateRequest(BaseModel):
     use_homebrew: Optional[bool] = None
     use_nlp_defense: Optional[bool] = None
     nlp_confidence_threshold: Optional[float] = Field(default=None, ge=0.1, le=0.99)
+    safe_answer_rendering: Optional[bool] = None
 
 
 class SystemPromptResponse(BaseModel):

@@ -6,11 +6,13 @@ import {
   waitFor,
   cleanup,
   act,
+  within,
 } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import ChatPage from "../pages/ChatPage";
 import { createLoadingMessage, scrollParentToBottom } from "../pages/chatUtils";
 import { fetchAcceptedAnswer, fetchAlertStatus, sendMessageToAPI } from "../services/ChatService";
+import { fetchSecurityConfig, type SecurityConfig } from "../services/security";
 import {
   deleteDocument,
   listDocuments,
@@ -30,6 +32,10 @@ vi.mock("../services/DocumentService", () => ({
   deleteDocument: vi.fn(),
 }));
 
+vi.mock("../services/security", () => ({
+  fetchSecurityConfig: vi.fn(),
+}));
+
 vi.mock("../components/SystemReadinessContext", () => ({
   useSystemReadiness: () => ({
     readiness: { status: "ready", components: {} },
@@ -47,6 +53,15 @@ const mockedFetchAcceptedAnswer = vi.mocked(fetchAcceptedAnswer);
 const mockedUploadDocument = vi.mocked(uploadDocument);
 const mockedListDocuments = vi.mocked(listDocuments);
 const mockedDeleteDocument = vi.mocked(deleteDocument);
+const mockedFetchSecurityConfig = vi.mocked(fetchSecurityConfig);
+const securityConfig = (safeAnswerRendering: boolean): SecurityConfig => ({
+  use_homebrew: false,
+  use_nlp_defense: false,
+  homebrew_status: "off",
+  nlp_defense_status: "off",
+  nlp_confidence_threshold: 0.5,
+  safe_answer_rendering: safeAnswerRendering,
+});
 const pickFiles = (...names: string[]) => {
   const input = document.querySelector('input[type="file"]') as HTMLInputElement;
   fireEvent.change(input, { target: { files: names.map((name) => new File(["x"], name, { type: "application/pdf" })) } });
@@ -63,6 +78,7 @@ describe("ChatPage Component", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockedListDocuments.mockReset().mockResolvedValue([]);
+    mockedFetchSecurityConfig.mockResolvedValue(securityConfig(false));
     cleanup();
   });
 
@@ -453,6 +469,112 @@ describe("ChatPage Component", () => {
 });
 
 // pure helper tests, ensuring coverage of branches and helpers
+
+// LLASER's answers come from an LLM, so they are untrusted input. Each test shows one answer
+// with harmless Markdown (example.org addresses only) and checks how the chat renders it.
+describe("rendering an untrusted answer", () => {
+  const IMAGE_ANSWER = "Answer start\n\n![logo](https://example.org/logo.png?note=hello)";
+  const LINK_ANSWER = "Answer start\n\nSee [more info](https://example.org/info).";
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockedListDocuments.mockReset().mockResolvedValue([]);
+    cleanup();
+  });
+
+  // Sets the Controls switch, asks a question and returns the answer's chat bubble.
+  const showAnswer = async (answer: string, { safe }: { safe: boolean }) => {
+    mockedFetchSecurityConfig.mockResolvedValue(securityConfig(safe));
+    answerWith(answer);
+    render(<ChatPage />);
+    await waitFor(() => expect(mockedFetchSecurityConfig).toHaveBeenCalled());
+    const input = screen.getAllByPlaceholderText("what would you like to know?")[0];
+    fireEvent.change(input, { target: { value: "Any question" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    const firstLine = await screen.findByText("Answer start");
+    return firstLine.closest(".message-bubble") as HTMLElement;
+  };
+
+  describe("with safe answer rendering off (the workshop's starting point)", () => {
+    it("loads an image from any address: the leak", async () => {
+      const bubble = await showAnswer(IMAGE_ANSWER, { safe: false });
+
+      expect(bubble.querySelector("img")).toHaveAttribute("src", "https://example.org/logo.png?note=hello");
+    });
+
+    it("opens a link in the same tab", async () => {
+      const bubble = await showAnswer(LINK_ANSWER, { safe: false });
+
+      expect(within(bubble).getByRole("link", { name: "more info" })).not.toHaveAttribute("target");
+    });
+  });
+
+  describe("with safe answer rendering on", () => {
+    it("does not load an image, but shows its address as text", async () => {
+      const bubble = await showAnswer(IMAGE_ANSWER, { safe: true });
+
+      expect(bubble.querySelector("img")).toBeNull();
+      expect(bubble).toHaveTextContent("[image not loaded: logo] https://example.org/logo.png?note=hello");
+    });
+
+    it("opens a link in a new tab, without referrer, and shows its site", async () => {
+      const bubble = await showAnswer(LINK_ANSWER, { safe: true });
+
+      const link = within(bubble).getByRole("link", { name: "more info" });
+      expect(link).toHaveAttribute("href", "https://example.org/info");
+      expect(link).toHaveAttribute("target", "_blank");
+      expect(link).toHaveAttribute("rel", "noopener noreferrer nofollow");
+      expect(bubble).toHaveTextContent("more info (example.org)");
+    });
+  });
+
+  // React and react-markdown already handle these, with the switch on or off.
+  describe.each([false, true])("with safe answer rendering %s", (safe) => {
+    it("shows HTML in an answer as text, not as page elements", async () => {
+      const bubble = await showAnswer('Answer start\n\nSome <b data-testid="from-answer">bold</b>', { safe });
+
+      expect(within(bubble).queryByTestId("from-answer")).toBeNull();
+      expect(bubble).toHaveTextContent('<b data-testid="from-answer">bold</b>');
+    });
+
+    it("does not keep a script address in a link", async () => {
+      const bubble = await showAnswer("Answer start\n\nSee [click](javascript:void(0)).", { safe });
+
+      const link = within(bubble).queryByRole("link", { name: "click" });
+      expect(link?.getAttribute("href") ?? "").not.toMatch(/^javascript:/i);
+    });
+  });
+
+  it("shows answers safely while the setting is not loaded yet", async () => {
+    mockedFetchSecurityConfig.mockRejectedValue(new Error("backend down"));
+    answerWith(IMAGE_ANSWER);
+    render(<ChatPage />);
+    fireEvent.change(screen.getAllByPlaceholderText("what would you like to know?")[0], { target: { value: "Q" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+
+    const bubble = (await screen.findByText("Answer start")).closest(".message-bubble") as HTMLElement;
+    expect(bubble.querySelector("img")).toBeNull();
+    // Safe, but no badge: the chat does not know that the setting is on.
+    expect(screen.queryByText("Safe answer rendering: active")).not.toBeInTheDocument();
+  });
+
+  it("shows a badge under the chat when safe answer rendering is on", async () => {
+    mockedFetchSecurityConfig.mockResolvedValue(securityConfig(true));
+    render(<ChatPage />);
+
+    expect(await screen.findByText("Safe answer rendering: active")).toHaveClass("chat-defense-badge--ready");
+    // About the prompt defenses only: safe rendering is a different kind of protection.
+    expect(screen.getByText("No prompt defenses active")).toBeInTheDocument();
+  });
+
+  it("shows no badge when safe answer rendering is off", async () => {
+    mockedFetchSecurityConfig.mockResolvedValue(securityConfig(false));
+    render(<ChatPage />);
+
+    await waitFor(() => expect(mockedFetchSecurityConfig).toHaveBeenCalled());
+    expect(screen.queryByText(/Safe answer rendering/)).not.toBeInTheDocument();
+  });
+});
 
 describe("scrollParentToBottom", () => {
   it("covers null, no-parent, and normal cases", () => {
