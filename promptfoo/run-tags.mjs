@@ -3,7 +3,7 @@
 //   node /home/promptfoo/config/run-tags.mjs
 // Exits with an error when a defense is switched on but not working: such a run measures nothing useful.
 
-const BACKEND = "http://backend:8080";
+const BACKEND = "http://backend:8080"; // NOSONAR: compose-internal network, no TLS
 
 const getJson = async (path) => {
   const response = await fetch(`${BACKEND}${path}`);
@@ -38,7 +38,7 @@ const main = async () => {
 
   const problems = defenseProblems(security);
   if (problems.length > 0) {
-    console.error(`Not starting the run: ${problems.join(", ")}. Wait until it shows Active on the Controls page.`);
+    console.error(`Not starting the run: ${problems.join(", ")}. Wait until it shows Active on the Controls page.`); // NOSONAR: statuses from the local backend
     process.exit(1);
   }
 

@@ -17,7 +17,7 @@ import { pathToFileURL } from "node:url";
 const PORT = 3100;
 const CONFIG_DIR = "/home/promptfoo/config";
 // promptfoo's web server: it lists the results of a run while the run is going.
-const PROMPTFOO_SERVER = process.env.PROMPTFOO_SERVER ?? "http://promptfoo:3000";
+const PROMPTFOO_SERVER = process.env.PROMPTFOO_SERVER ?? "http://promptfoo:3000"; // NOSONAR: compose-internal network, no TLS
 
 const ATTACK_SETS = ["quick", "workshop", "full"];
 // Starts with a letter or digit, so a name can never look like an option ("--config").
@@ -82,7 +82,7 @@ const startRun = (request) => {
   };
   current = run;
 
-  const child = spawn("promptfoo", promptfooArgs(request), { stdio: ["ignore", "pipe", "pipe"] });
+  const child = spawn("promptfoo", promptfooArgs(request), { stdio: ["ignore", "pipe", "pipe"] }); // NOSONAR: PATH of the pinned promptfoo image
   let output = "";
   const collect = (chunk) => {
     process.stdout.write(chunk); // docker compose logs promptfoo-runner

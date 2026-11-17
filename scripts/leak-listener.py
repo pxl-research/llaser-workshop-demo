@@ -45,7 +45,7 @@ class LeakListener(BaseHTTPRequestHandler):
 def main():
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 9911
     server = ThreadingHTTPServer(("127.0.0.1", port), LeakListener)
-    print(f"Pretend attacker listening on http://127.0.0.1:{port} (Ctrl+C to stop)")
+    print(f"Pretend attacker listening on http://127.0.0.1:{port} (Ctrl+C to stop)")  # NOSONAR: local demo listener, no TLS on purpose
     try:
         server.serve_forever()
     except KeyboardInterrupt:
