@@ -180,8 +180,8 @@ function SecurityPage() {
               />
               <span className="security-toggle__label">NLP/ML defense (DistilBERT classifier)</span>
               <span className="security-toggle__desc">
-                Runs on this laptop. The model is installed automatically on the first start (see the
-                README).
+                Runs on this laptop. The model comes with the backend image. Model{" "}
+                {config.nlp_model_version ?? "not loaded"}.
               </span>
             </label>
             <StatusBadge status={config.nlp_defense_status} error={config.nlp_defense_error} />

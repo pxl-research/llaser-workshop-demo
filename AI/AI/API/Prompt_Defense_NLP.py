@@ -1,5 +1,6 @@
 """NLP prompt defense: a DistilBERT classifier exported to ONNX."""
 
+import json
 import logging
 from pathlib import Path
 
@@ -22,6 +23,7 @@ class MLPromptSafetyDetector:
         self.tokenizer = None
         self.is_loaded = False
         self.load_error: str | None = None
+        self.model_version: str | None = None
         self.load_model()
 
     def load_model(self):
@@ -29,7 +31,7 @@ class MLPromptSafetyDetector:
         if not all((self.model_path / name).is_file() for name in self.REQUIRED_FILES):
             self.load_error = (
                 f"NLP defense model not found at {self.model_path}. "
-                "Run docker compose logs model-init and see the README."
+                "The backend image from GHCR includes it; a local build does not."
             )
             logger.warning(self.load_error)
             return
@@ -40,6 +42,9 @@ class MLPromptSafetyDetector:
             self.session = ort.InferenceSession(
                 str(self.model_path / "model.onnx"), providers=["CPUExecutionProvider"]
             )
+            card = self.model_path / "model_card.json"
+            if card.is_file():
+                self.model_version = json.loads(card.read_text()).get("version")
             self.is_loaded = True
             logger.info("NLP defense model loaded from %s", self.model_path)
         except Exception as e:

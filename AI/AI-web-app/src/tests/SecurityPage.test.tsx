@@ -102,4 +102,10 @@ describe("SecurityPage", () => {
     await screen.findByText("Prompt Defenses");
     expect(screen.queryByText(/SonarQube/)).not.toBeInTheDocument();
   });
+
+  it("shows the NLP model version", async () => {
+    renderSecurityPage({ nlp_model_version: "v1" });
+
+    expect(await screen.findByText(/Model v1\./)).toBeInTheDocument();
+  });
 });

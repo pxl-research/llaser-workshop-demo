@@ -39,11 +39,10 @@ Or download the repo as a zip and unzip it. Then copy the settings file:
 
 ### 3. Fill in `.env`
 
-At the start of the workshop you get an e-mail with a personal Bitwarden Send link. It works only a few times and expires after the workshop, so open it right away. Open `.env` in a text editor and replace these four empty lines with the four lines from the link:
+At the start of the workshop you get an e-mail with a personal Bitwarden Send link. It works only a few times and expires after the workshop, so open it right away. Open `.env` in a text editor and replace these three empty lines with the three lines from the link:
 
 ```
 OPENROUTER_API_KEY=
-MODEL_PASSWORD=
 HOMEBREW_BASE_URL=
 HOMEBREW_API_KEY=
 ```
@@ -52,12 +51,11 @@ The OpenRouter key is personal and has a credit limit. All keys stop working aft
 
 ### 4. Start and test
 
-1. Start the app and follow the model install:
+1. Start the app:
    ```bash
    docker compose up -d
-   docker compose logs -f model-init
    ```
-   The first start downloads the images (about 1.5 GB, most of it promptfoo) and the NLP model (about 270 MB). The log stops by itself after `model: ... installed`.
+   The first start downloads the images (about 1.8 GB, most of it promptfoo and the NLP model in the backend image).
 2. Open http://127.0.0.1:8080 and wait until the banner at the top disappears.
 3. Click the upload button and upload the three PDFs in `corpus/` (you can select all three at once).
 4. Ask a question about the course, for example "Who teaches the course?".
@@ -170,19 +168,19 @@ Do not upload confidential documents.
 | Error 421 or 403 | Open http://127.0.0.1:8080 or http://localhost:8080. The app blocks other addresses (your LAN IP, a hostname) and requests from other websites on purpose. |
 | Page does not load | Run `docker compose ps`. If the backend is not running, run `docker compose up -d`. The frontend recovers by itself. |
 | `query blocked: prompt defense unavailable, try again later` | A defense is on but does not work. LLM defense: the Spark and the OpenRouter fallback both failed, so check `OPENROUTER_API_KEY`; switch the defense off and on, or leave it off. NLP defense: the model is missing. |
-| Controls page: NLP defense "Unavailable", "model not found" | Run `docker compose logs model-init`. `set MODEL_PASSWORD` or `wrong MODEL_PASSWORD`: fix the password in `.env`. Download failed: check the internet connection, or copy the model file from the USB stick into a `models` folder in the repo. Then run `docker compose up -d` and switch the NLP defense off and on. |
+| Controls page: NLP defense "Unavailable", "model not found" | You run a locally built backend image without the model. Run `docker compose pull backend && docker compose up -d`, then switch the NLP defense off and on. |
 | "Your session is currently blocked" | Go to the Alerts page and accept or deny the alert, or open a new tab. |
 | Upload: "Unsupported document type" | Upload PDF files only. |
 | Odd answer order | The reranker provider is down; the app then uses the vector order. |
 | Windows: Docker does not start | Turn on WSL 2 and virtualization in the BIOS/UEFI. Windows on Arm: Docker Desktop is Early Access there. |
 | Image pull too slow at the venue | Ask for the USB stick. Find your architecture with `docker version --format '{{.Server.Arch}}'` (amd64 or arm64), then run `docker load -i llaser-<arch>.tar`. The app still needs internet for OpenRouter. |
 
-Stop the app: `docker compose down`. Reset everything (documents, chat memory, the installed model, the promptfoo runs): `docker compose down -v`. The next `docker compose up -d` downloads the model again.
+Stop the app: `docker compose down`. Reset everything (documents, chat memory, the promptfoo runs): `docker compose down -v`.
 
 ## Development (macOS/Linux)
 
 - `./001_start_llaser.sh` builds the backend and frontend from the local source and starts the app, so code changes are always in the containers. promptfoo starts with it. `--no-cache` forces a full rebuild; `--no-build` starts the existing images.
-- `./002_stop_llaser.sh` stops everything, promptfoo included. `--reset` also deletes the volumes (documents, chat memory, NLP model, promptfoo runs).
+- `./002_stop_llaser.sh` stops everything, promptfoo included. `--reset` also deletes the volumes (documents, chat memory, promptfoo runs). The backend build bakes in the NLP model from `AI/AI/API/models/malicious_prompt_detector/`; the script pulls it there with [oras](https://oras.land) when it is missing. The package is private: run `oras login ghcr.io` first with a GitHub token that has `read:packages` and access to it.
 - The **Auto red team** page starts runs through the `promptfoo-runner` service (`promptfoo/runner.mjs`): it runs the same command as `./005_promptfoo_run.sh`, so promptfoo cloud grades the answers. It has no published port; only the backend calls it. Its log: `docker compose logs promptfoo-runner`.
 - `./004_promptfoo_generate.sh [--quick | --full]` (hosts only) regenerates an attack set from `promptfoo/redteam-quick.yaml`, `promptfoo/redteam.yaml` or `promptfoo/redteam-full.yaml` into `promptfoo/attack-sets/`, without the generator's e-mail address. Commit the result. Runs on the old set no longer compare with runs on the new one.
 
@@ -190,4 +188,4 @@ Stop the app: `docker compose down`. Reset everything (documents, chat memory, t
 
 - This repo: Apache License 2.0, see [LICENSE](LICENSE).
 - The backend image contains PyMuPDF and pymupdf4llm, licensed under AGPL-3.0. Source: https://github.com/pymupdf/PyMuPDF
-- The NLP model is distributed separately (encrypted). It is a fine-tune of DistilBERT (Apache-2.0). Read its model card after installation: `docker compose run --rm --entrypoint cat model-init /model/MODEL_CARD.md`.
+- The backend image contains the NLP model (`ghcr.io/pxl-research/llaser-nlp-defense/malicious-prompt-detector:v1`), a fine-tune of DistilBERT (Apache-2.0). Copy its model card out of the running app: `docker compose cp backend:/app/AI/API/models/malicious_prompt_detector/model_card.json .`

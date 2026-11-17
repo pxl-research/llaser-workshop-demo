@@ -82,6 +82,10 @@ def get_nlp_defense_status() -> tuple[str, str | None]:
     return _nlp_defense_status, _nlp_defense_error
 
 
+def get_nlp_model_version() -> str | None:
+    return getattr(_ml_safety_detector, "model_version", None)
+
+
 def _connect_prompt_defense():
     """The DGX Spark first; OpenRouter when the Spark is not set or not reachable."""
     from AI.API.Prompt_Defense import openrouter_defense, spark_defense

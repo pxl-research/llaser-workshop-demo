@@ -101,6 +101,7 @@ def get_security_config():
         homebrew_error=homebrew_error,
         homebrew_backend=services.get_homebrew_backend(),
         nlp_defense_error=nlp_error,
+        nlp_model_version=services.get_nlp_model_version(),
         nlp_confidence_threshold=threshold,
         safe_answer_rendering=settings.SAFE_ANSWER_RENDERING,
     )

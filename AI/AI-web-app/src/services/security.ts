@@ -10,6 +10,7 @@ export type SecurityConfig = {
   homebrew_error?: string | null;
   homebrew_backend?: "spark" | "openrouter" | null;
   nlp_defense_error?: string | null;
+  nlp_model_version?: string | null;
   nlp_confidence_threshold: number;
   safe_answer_rendering: boolean;
 };

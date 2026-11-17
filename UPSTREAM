@@ -1,0 +1,5 @@
+daadc72a5a81f75de91eb301709077b9d9234632
+# Line 1: the LLASER_demo2 commit whose shared app code (AI/AI/API, AI/AI/Chunking, AI/AI-web-app/src)
+# this repo last caught up with. Before a release, list newer upstream changes from the parent folder:
+#   git -C LLASER_demo2 log --oneline "$(head -1 llaser-workshop-demo/UPSTREAM)"..origin/dev -- AI/AI/API AI/AI/Chunking AI/AI-web-app/src
+# Port or skip each one, then update line 1.

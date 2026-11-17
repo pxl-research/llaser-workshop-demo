@@ -1054,6 +1054,12 @@ class ApiTestCase(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertAlmostEqual(response.json()["nlp_confidence_threshold"], 0.8)
 
+    async def test_get_security_config_reports_nlp_model_version(self):
+        with patch.object(services, "_ml_safety_detector", types.SimpleNamespace(model_version="v1")):
+            response = await self.client.get("/security-config")
+
+        self.assertEqual(response.json()["nlp_model_version"], "v1")
+
     async def test_post_security_config_triggers_async_load(self):
         settings.USE_HOMEBREW = False
         settings.USE_NLP_DEFENSE = False

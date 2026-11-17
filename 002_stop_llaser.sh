@@ -12,8 +12,8 @@ Usage: ./002_stop_llaser.sh [--reset]
 Stops the LLASER workshop app, including promptfoo if it runs.
 
 Options:
-  --reset  Also delete the volumes: uploaded documents, chat memory,
-           the installed NLP model and the promptfoo runs.
+  --reset  Also delete the volumes: uploaded documents, chat memory
+           and the promptfoo runs.
 EOF
 }
 
@@ -45,7 +45,7 @@ if [[ "$RESET" -eq 1 ]]; then
   DOWN_ARGS+=(--volumes)
   echo "Stopping LLASER and deleting its volumes..."
 else
-  echo "Stopping LLASER (documents, chat memory, model and promptfoo runs are kept)..."
+  echo "Stopping LLASER (documents, chat memory and promptfoo runs are kept)..."
 fi
 
 docker compose --project-directory "$ROOT_DIR" down ${DOWN_ARGS[@]+"${DOWN_ARGS[@]}"}

@@ -34,4 +34,3 @@ data/
 *.ipynb
 coverage.xml
 sonar-project.properties
-API/models/

@@ -57,6 +57,7 @@ class SecurityConfigResponse(BaseModel):
     homebrew_error: Optional[str] = None
     homebrew_backend: Optional[Literal["spark", "openrouter"]] = None
     nlp_defense_error: Optional[str] = None
+    nlp_model_version: Optional[str] = None
     nlp_confidence_threshold: float
     safe_answer_rendering: bool
 

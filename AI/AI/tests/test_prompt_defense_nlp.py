@@ -104,6 +104,19 @@ class MLPromptSafetyDetectorTests(unittest.TestCase):
         self.assertFalse(detector.is_loaded)
         self.assertIn("not found", detector.load_error)
 
+    def test_model_card_version_is_exposed(self):
+        (self.model_dir / "model_card.json").write_text('{"version": "v1"}')
+
+        detector = NLP.MLPromptSafetyDetector(self.model_dir)
+
+        self.assertEqual(detector.model_version, "v1")
+
+    def test_missing_model_card_still_loads(self):
+        detector = NLP.MLPromptSafetyDetector(self.model_dir)
+
+        self.assertTrue(detector.is_loaded)
+        self.assertIsNone(detector.model_version)
+
 
 if __name__ == "__main__":
     unittest.main()

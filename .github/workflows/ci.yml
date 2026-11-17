@@ -56,6 +56,11 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      # The NLP model is baked into the backend image, as in LLASER_demo2. oras reuses the ghcr.io login above.
+      - if: matrix.image == 'backend'
+        uses: oras-project/setup-oras@5e2f2482b30b0cb3e14e67f89a80c88c659a7c63 # v2.0.3
+      - if: matrix.image == 'backend'
+        run: oras pull ghcr.io/pxl-research/llaser-nlp-defense/malicious-prompt-detector:v1 -o AI/AI/API/models/malicious_prompt_detector/
       - id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:

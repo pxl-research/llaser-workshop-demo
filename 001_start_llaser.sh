@@ -74,6 +74,13 @@ require_file "$ENV_FILE" \
 COMPOSE=(docker compose --project-directory "$ROOT_DIR")
 
 if [[ "$SKIP_BUILD" -eq 0 ]]; then
+  # The backend image bakes in the NLP model from this folder (gitignored). Same tag as .github/workflows/ci.yml.
+  MODEL_DIR="$ROOT_DIR/AI/AI/API/models/malicious_prompt_detector"
+  if [[ ! -f "$MODEL_DIR/model.onnx" ]]; then
+    echo "Pulling the NLP model from GHCR (needs oras: https://oras.land, and oras login ghcr.io)..."
+    oras pull ghcr.io/pxl-research/llaser-nlp-defense/malicious-prompt-detector:v1 -o "$MODEL_DIR" ||
+      echo "NLP model pull failed (private package: run oras login ghcr.io): the app runs, but the NLP defense shows Unavailable."
+  fi
   echo "Building backend and frontend images from local source..."
   BUILD_ARGS=()
   if [[ "$NO_CACHE" -eq 1 ]]; then
@@ -114,7 +121,6 @@ LLASER workshop app is running.
 
 App:              ${APP_URL}
 Readiness:        ${APP_URL}/api/ready
-NLP model install: docker compose logs -f model-init
 promptfoo UI:     http://127.0.0.1:${PROMPTFOO_PORT}
 Red team runs:    ./003_promptfoo_check.sh, then ./005_promptfoo_run.sh baseline (see README.md)
 EOF
