@@ -71,7 +71,8 @@ def process_alert_action(alert_id: str, action: str) -> bool:
     alert = alerts_store[alert_id]
     if action == "accept":
         alert["status"] = "accepted"
-        logger.info("Alert %s accepted - prompt approved, its chat may fetch the answer", alert_id)
+        # Log the stored id, not the request's: no request text reaches the log.
+        logger.info("Alert %s accepted - prompt approved, its chat may fetch the answer", alert["id"])
         return True
 
     if action == "deny":
@@ -79,7 +80,7 @@ def process_alert_action(alert_id: str, action: str) -> bool:
         session_id = alert.get("sessionID")
         if session_id:
             session_blocks.pop(session_id, None)
-        logger.info("Alert %s denied - session %s unblocked", alert_id, session_id)
+        logger.info("Alert %s denied - session %s unblocked", alert["id"], session_id)
         return True
 
     logger.error("Unknown action '%s' for alert %s", action, alert_id)

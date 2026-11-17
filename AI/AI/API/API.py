@@ -425,7 +425,8 @@ def release_accepted_prompt(alert_id: str, request: AlertReleaseRequest):
     if question is None:
         raise HTTPException(status_code=409, detail="Nothing to release for this alert")
 
-    logger.info("Answering accepted prompt of alert %s - Session: %s", alert_id, request.session_id)
+    # Request values stay out of the log (log injection).
+    logger.info("Answering an accepted prompt")
     return _event_stream(_stream_answer(system, QueryRequest(question=question, session_id=request.session_id)))
 
 

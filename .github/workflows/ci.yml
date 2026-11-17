@@ -14,7 +14,8 @@ jobs:
         with:
           fetch-depth: 0
       - run: bash scripts/leakcheck.sh
-      - run: bash scripts/test-promptfoo.sh
+      # docker compose needs the .env that env_file names; attendees copy it the same way.
+      - run: cp .env.example .env && bash scripts/test-promptfoo.sh
       - uses: actions/setup-python@v7
         with:
           python-version: '3.11'
