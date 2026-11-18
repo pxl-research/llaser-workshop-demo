@@ -73,6 +73,7 @@ function SecurityPage() {
   const [config, setConfig] = useState<SecurityConfig | null>(null);
   const [error, setError] = useState<string | null>(null);
   const pollRef = useRef<number | null>(null);
+  const pendingUpdates = useRef(0);
 
   const isLoading =
     config?.homebrew_status === "loading" || config?.nlp_defense_status === "loading";
@@ -102,13 +103,18 @@ function SecurityPage() {
     };
   }, [isLoading, loadConfig]);
 
-  // Every setting applies at once.
+  // Every setting applies at once. Quick clicks send several updates whose replies can arrive in any order,
+  // so no reply is shown: once the last one is back, the page loads the backend's state.
   const applyNow = async (update: Partial<SecurityConfig>, failure: string) => {
     setError(null);
+    pendingUpdates.current += 1;
     try {
-      setConfig(await updateSecurityConfig(update));
+      await updateSecurityConfig(update);
     } catch (e) {
       setError(e instanceof Error ? e.message : failure);
+    } finally {
+      pendingUpdates.current -= 1;
+      if (pendingUpdates.current === 0) void loadConfig();
     }
   };
 

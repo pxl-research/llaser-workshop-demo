@@ -52,6 +52,49 @@ describe("SecurityPage", () => {
     expect(screen.getByText("Every change applies at once and lasts until the app restarts.")).toBeInTheDocument();
   });
 
+  it("shows the backend's state after quick switches, whatever order the replies arrive in", async () => {
+    // The backend keeps the real state; each POST reply is a snapshot taken when that POST was handled.
+    let backend = {
+      ...securityConfig,
+      use_homebrew: true,
+      use_nlp_defense: true,
+      homebrew_status: "ready",
+      nlp_defense_status: "ready",
+    };
+    const replies: ((r: Response) => void)[] = [];
+    mockFetch.mockImplementation(async (url: string, init?: RequestInit) => {
+      if (url === "/api/security-config" && init?.method === "POST") {
+        const update = JSON.parse(String(init.body));
+        if ("use_homebrew" in update) backend = { ...backend, use_homebrew: update.use_homebrew, homebrew_status: "off" };
+        if ("use_nlp_defense" in update) backend = { ...backend, use_nlp_defense: update.use_nlp_defense, nlp_defense_status: "off" };
+        const snapshot = { ...backend };
+        return new Promise<Response>((resolve) => replies.push(resolve)).then(
+          () => ({ ok: true, json: async () => snapshot }) as Response
+        );
+      }
+      const bodies: Record<string, unknown> = {
+        "/api/security-config": backend,
+        "/api/available-llms": [],
+        "/api/llm": { llm: "test/model" },
+        "/api/system-prompt": { prompt: "{context}", default_prompt: "{context}" },
+      };
+      return { ok: true, json: async () => bodies[url] } as Response;
+    });
+    render(<SecurityPage />);
+
+    fireEvent.click(await screen.findByRole("checkbox", { name: /^LLM defense/ }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /^NLP defense/ }));
+    await waitFor(() => expect(replies).toHaveLength(2));
+
+    // The newer reply (both off) arrives first, the older one (NLP still on) last.
+    replies[1](undefined as unknown as Response);
+    replies[0](undefined as unknown as Response);
+
+    await waitFor(() => expect(screen.getByRole("checkbox", { name: /^NLP defense/ })).not.toBeChecked());
+    expect(screen.getByRole("checkbox", { name: /^LLM defense/ })).not.toBeChecked();
+    expect(screen.queryByText("Active")).not.toBeInTheDocument();
+  });
+
   it("applies the NLP defense at once", async () => {
     renderSecurityPage();
 
