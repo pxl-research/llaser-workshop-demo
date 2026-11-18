@@ -80,6 +80,7 @@ class MLPromptSafetyDetectorTests(unittest.TestCase):
         self.assertTrue(result["is_malicious"])
         self.assertEqual(result["risk_level"], "Critical")
         self.assertAlmostEqual(result["confidence"], 0.8808, places=3)
+        self.assertAlmostEqual(result["malicious_probability"], 0.8808, places=3)
         feeds = FakeSession.feeds
         self.assertEqual(feeds["input_ids"].dtype, np.int64)
         self.assertEqual(feeds["input_ids"].tolist(), [[101, 2023, 102]])

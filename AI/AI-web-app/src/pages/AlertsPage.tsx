@@ -13,6 +13,8 @@ interface MaliciousPromptAlert {
   threatTypes: string[];
   sessionID?: string;
   status: AlertStatus;
+  defense?: "llm" | "nlp";
+  score?: number | null;
 }
 
 const FILTERS: Filter[] = ["all", "pending", "accepted", "denied"];
@@ -37,6 +39,12 @@ const fetchAlertList = async (): Promise<{ alerts?: MaliciousPromptAlert[]; erro
   }
 };
 
+const defenseLabel = (alert: MaliciousPromptAlert): string => {
+  if (alert.defense === "llm") return "LLM defense";
+  if (alert.defense !== "nlp") return "Blocked question";
+  return typeof alert.score === "number" ? `NLP defense, score ${alert.score.toFixed(2)}` : "NLP defense";
+};
+
 interface AlertCardProps {
   alert: MaliciousPromptAlert;
   onAction: (alertId: string, action: "accept" | "deny") => void;
@@ -46,6 +54,7 @@ function AlertCard({ alert, onAction }: Readonly<AlertCardProps>) {
   return (
     <div className="alert-card">
       <div className="alert-header-row">
+        <h3 className="alert-title">{defenseLabel(alert)}</h3>
         <span className="alert-timestamp">{new Date(alert.timestamp).toLocaleString()}</span>
       </div>
 
@@ -55,7 +64,15 @@ function AlertCard({ alert, onAction }: Readonly<AlertCardProps>) {
           <p className="prompt-text">{alert.prompt}</p>
         </div>
 
-        {alert.threatTypes.length > 0 && (
+        {/* The LLM defense's reason is model output: plain text only, never Markdown. */}
+        {alert.defense === "llm" && alert.threatTypes.length > 0 && (
+          <div className="detail-row">
+            <strong>Reason:</strong>
+            <p className="reason-text">{alert.threatTypes.join(" ")}</p>
+          </div>
+        )}
+
+        {alert.defense !== "llm" && alert.threatTypes.length > 0 && (
           <div className="detail-row">
             <strong>Threat Types:</strong>
             <div className="threat-tags">

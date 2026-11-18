@@ -100,6 +100,23 @@ describe("AlertsPage", () => {
     expect(screen.getByText("a red-team run")).toBeInTheDocument();
   });
 
+  it("names the defense and its score in the card header", async () => {
+    stubAlerts([{ ...alert("a1", "session_x"), defense: "nlp", score: 0.734, threatTypes: ["prompt injection"] }]);
+    render(<AlertsPage />);
+    expect(await screen.findByRole("heading", { name: "NLP defense, score 0.73" })).toBeInTheDocument();
+    expect(screen.getByText("prompt injection")).toBeInTheDocument();
+  });
+
+  it("shows the LLM defense reason as plain text", async () => {
+    const reason = "[MALICIOUS]: asks to ignore **the** instructions";
+    stubAlerts([{ ...alert("a1", "session_x"), defense: "llm", score: null, threatTypes: [reason] }]);
+    render(<AlertsPage />);
+    expect(await screen.findByRole("heading", { name: "LLM defense" })).toBeInTheDocument();
+    expect(screen.getByText("Reason:")).toBeInTheDocument();
+    expect(screen.getByText(reason)).toBeInTheDocument();
+    expect(screen.queryByText("Threat Types:")).not.toBeInTheDocument();
+  });
+
   it("shows no risk badge", async () => {
     stubAlerts([alert("a1", "session_x")]);
     render(<AlertsPage />);

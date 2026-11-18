@@ -10,6 +10,9 @@ from AI.API.schemas import QueryRequest, QueryResponse
 logger = logging.getLogger(__name__)
 
 DEFENSE_UNAVAILABLE_ANSWER = "query blocked: prompt defense unavailable, try again later"
+# The LLM defense's reason is model output an attacker can steer: it goes to the Alerts page as plain text,
+# never into the chat answer, which renders Markdown.
+LLM_BLOCKED_ANSWER = "query blocked by the LLM defense. Its reason is on the Alerts page."
 
 
 def blocked_query_response(
@@ -17,14 +20,20 @@ def blocked_query_response(
     session_id: Optional[str],
     risk_level: str,
     threat_types: List[str],
+    *,
+    defense: str,
+    answer: str,
+    score: Optional[float] = None,
 ) -> QueryResponse:
     alert_id = alerts.create_malicious_prompt_alert(
         prompt=prompt,
         risk_level=risk_level,
         threat_types=threat_types,
         session_id=session_id,
+        defense=defense,
+        score=score,
     )
-    return QueryResponse(answer="query blocked", alert_id=alert_id)
+    return QueryResponse(answer=answer, alert_id=alert_id)
 
 
 def defense_unavailable_response() -> QueryResponse:
@@ -71,6 +80,8 @@ def check_homebrew_prompt_defense(request: QueryRequest) -> Optional[QueryRespon
         session_id=request.session_id,
         risk_level="high",
         threat_types=[reason] if reason else ["Unknown threat"],
+        defense="llm",
+        answer=LLM_BLOCKED_ANSWER,
     )
 
 
@@ -105,11 +116,16 @@ def check_nlp_prompt_defense(request: QueryRequest) -> Optional[QueryResponse]:
     )
     risk_level = str(result.get("risk_level", "unknown")).lower()
     threat_types = result.get("threat_types", ["Unknown threat type"])
+    score = result["malicious_probability"]
+    threshold = detector.confidence_threshold
     return blocked_query_response(
         prompt=request.question,
         session_id=request.session_id,
         risk_level=risk_level,
         threat_types=threat_types,
+        defense="nlp",
+        answer=f"query blocked by the NLP defense (score {score:.2f}, threshold {threshold:.2f})",
+        score=score,
     )
 
 

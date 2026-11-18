@@ -193,6 +193,14 @@
   overflow-y: auto;
 }
 
+.reason-text {
+  margin: 0;
+  color: #374151;
+  font-size: 14px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .threat-tags {
   display: flex;
   flex-wrap: wrap;

@@ -20,8 +20,14 @@ def create_malicious_prompt_alert(
     risk_level: str,
     threat_types: List[str],
     session_id: Optional[str] = None,
+    *,
+    defense: str,
+    score: Optional[float] = None,
 ) -> str:
-    """Create a new alert for a malicious prompt and block the session."""
+    """Create a new alert for a malicious prompt and block the session.
+
+    defense is "llm" or "nlp"; score is the NLP defense's malicious probability (None for the LLM defense).
+    """
     alert_id = str(uuid.uuid4())
     alert = {
         "id": alert_id,
@@ -30,6 +36,8 @@ def create_malicious_prompt_alert(
         "riskLevel": risk_level,
         "threatTypes": threat_types,
         "sessionID": session_id,
+        "defense": defense,
+        "score": score,
         "status": "pending",
         # Set once the chat fetched the answer to an accepted prompt.
         "released": False,

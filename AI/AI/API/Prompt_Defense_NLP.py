@@ -67,6 +67,7 @@ class MLPromptSafetyDetector:
             "is_malicious": malicious_prob >= self.confidence_threshold,
             "confidence": max(benign_prob, malicious_prob),
             "risk_level": risk_level(malicious_prob),
+            "malicious_probability": malicious_prob,
         }
 
     def set_threshold(self, threshold: float):
