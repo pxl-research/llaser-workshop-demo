@@ -90,6 +90,12 @@
   max-width: 900px;
 }
 
+/* Once the chat starts, the intro column is gone: the card takes the whole row. */
+.chat-card--active {
+  grid-column: 1 / -1;
+  justify-self: center;
+}
+
 .chat-card::before {
   position: absolute;
   inset: 0;
@@ -104,7 +110,7 @@
   position: relative;
   z-index: 1;
   flex: 1;
-  padding: 28px 28px 118px;
+  padding: 28px;
   overflow-y: auto;
 }
 
@@ -212,11 +218,10 @@
   .typing-dots span { animation: none; opacity: 0.6; }
 }
 
+/* In the flow, above the status bar: a taller (multi-line) input pushes the chat up instead of covering it. */
 .chat-input-bar {
-  position: absolute;
-  right: 22px;
-  bottom: 22px;
-  left: 22px;
+  position: relative;
+  margin: 0 22px;
   z-index: 2;
   display: flex;
   align-items: flex-end;
@@ -346,7 +351,7 @@
   }
 
   .chat-scroll-area {
-    padding: 22px 18px 110px;
+    padding: 22px 18px;
   }
 
   .assistant-message,
@@ -355,9 +360,7 @@
   }
 
   .chat-input-bar {
-    right: 14px;
-    bottom: 14px;
-    left: 14px;
+    margin: 0 14px;
     border-radius: 20px;
   }
 
@@ -375,7 +378,7 @@
   justify-content: center;
   gap: 8px;
   flex-wrap: wrap;
-  padding: 6px 0;
+  padding: 8px 14px 12px;
 }
 
 .chat-defense-badge {
@@ -410,7 +413,6 @@
   color: #991b1b;
 }
 
-/* Top of the card: the bottom is under the absolutely positioned input bar. */
 .chat-toolbar {
   position: relative;
   z-index: 1;

@@ -72,7 +72,7 @@ function ResponseBody({ msg, now, safe }: Readonly<{ msg: Message; now: number; 
   return <AnswerMarkdown text={msg.text} safe={safe} />;
 }
 
-// One badge per protection that is on, under the chat.
+// One badge per protection that is on, under the input bar.
 function DefenseBadge({ name, status }: Readonly<{ name: string; status: DefenseStatus }>) {
   return (
     <span className={`chat-defense-badge chat-defense-badge--${status}`}>
@@ -117,7 +117,6 @@ interface ChatToolbarProps {
   onNewChat: () => void;
 }
 
-// Top of the card: the bottom is under the absolutely positioned input bar.
 function ChatToolbar({ documents, canDelete, onDelete, canStartNewChat, onNewChat }: Readonly<ChatToolbarProps>) {
   return (
     <div className="chat-toolbar">
@@ -419,13 +418,6 @@ function ChatPage({ isVisible = true }: Readonly<{ isVisible?: boolean }>) {
             <div ref={chatEndRef} />
           </div>
 
-          <DefenseBar
-            defenses={defenses}
-            safeRendering={safeRendering === true}
-            model={model}
-            customPrompt={customPrompt}
-          />
-
           <form className="chat-input-bar" onSubmit={handleSubmit}>
             <input
               ref={fileInputRef}
@@ -467,6 +459,13 @@ function ChatPage({ isVisible = true }: Readonly<{ isVisible?: boolean }>) {
               <img src={sendIconSrc} alt="" aria-hidden="true" className="chat-send-icon" />
             </button>
           </form>
+
+          <DefenseBar
+            defenses={defenses}
+            safeRendering={safeRendering === true}
+            model={model}
+            customPrompt={customPrompt}
+          />
         </div>
       </div>
     </section>
