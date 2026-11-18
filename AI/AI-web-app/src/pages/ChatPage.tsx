@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ChangeEvent, FormEvent, KeyboardEvent } from "react";
-import { fetchAcceptedAnswer, fetchAlertStatus, sendMessageToAPI, type AlertStatus } from "../services/ChatService";
+import {
+  fetchAcceptedAnswer,
+  fetchAlertStatus,
+  newSessionId,
+  sendMessageToAPI,
+  type AlertStatus,
+} from "../services/ChatService";
+import { fetchCurrentModel, fetchSystemPrompt } from "../services/controls";
 import { deleteDocument, listDocuments, uploadDocument } from "../services/DocumentService";
 import { fetchSecurityConfig, type DefenseStatus } from "../services/security";
 import { useSystemReadiness } from "../components/SystemReadinessContext";
@@ -21,7 +28,7 @@ const ALERT_POLL_MS = 2000;
 const sleep = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
 const REVIEW_MESSAGES = {
-  pending: "⏳ Waiting for review. Accept or deny this question on the **Alerts** page.",
+  pending: "⏳ Waiting for review. Accept or deny this question on the **Alerts** page, or click **New chat**.",
   accepted: "✓ A reviewer accepted your question.\n\n",
   denied: "✗ A reviewer denied this question. You can ask something else.",
   gone: "The alert no longer exists (the app restarted). Ask your question again.",
@@ -65,7 +72,7 @@ function ResponseBody({ msg, now, safe }: Readonly<{ msg: Message; now: number; 
   return <AnswerMarkdown text={msg.text} safe={safe} />;
 }
 
-// One badge per protection that is on, under the chat.
+// One badge per protection that is on, under the input bar.
 function DefenseBadge({ name, status }: Readonly<{ name: string; status: DefenseStatus }>) {
   return (
     <span className={`chat-defense-badge chat-defense-badge--${status}`}>
@@ -74,19 +81,70 @@ function DefenseBadge({ name, status }: Readonly<{ name: string; status: Defense
   );
 }
 
-function DefenseBar({
-  defenses,
-  safeRendering,
-}: Readonly<{ defenses: { homebrew: DefenseStatus; nlp: DefenseStatus }; safeRendering: boolean }>) {
+interface DefenseBarProps {
+  defenses: { homebrew: DefenseStatus; nlp: DefenseStatus };
+  safeRendering: boolean;
+  // null until the backend tells.
+  model: string | null;
+  customPrompt: boolean | null;
+}
+
+function DefenseBar({ defenses, safeRendering, model, customPrompt }: Readonly<DefenseBarProps>) {
   const noPromptDefenses = defenses.homebrew === "off" && defenses.nlp === "off";
   return (
     <div className="chat-defense-bar">
+      {model && (
+        <span className="chat-defense-badge chat-defense-badge--info">Model: {model.slice(model.indexOf("/") + 1)}</span>
+      )}
+      {customPrompt !== null && (
+        <span className="chat-defense-badge chat-defense-badge--info">Prompt: {customPrompt ? "custom" : "default"}</span>
+      )}
       {noPromptDefenses && (
         <span className="chat-defense-badge chat-defense-badge--off">No prompt defenses active</span>
       )}
-      {defenses.homebrew !== "off" && <DefenseBadge name="LLM Defense" status={defenses.homebrew} />}
-      {defenses.nlp !== "off" && <DefenseBadge name="NLP Defense" status={defenses.nlp} />}
+      {defenses.homebrew !== "off" && <DefenseBadge name="LLM defense" status={defenses.homebrew} />}
+      {defenses.nlp !== "off" && <DefenseBadge name="NLP defense" status={defenses.nlp} />}
       {safeRendering && <DefenseBadge name="Safe answer rendering" status="ready" />}
+    </div>
+  );
+}
+
+interface ChatToolbarProps {
+  documents: string[];
+  canDelete: boolean;
+  onDelete: (name: string) => void;
+  canStartNewChat: boolean;
+  onNewChat: () => void;
+}
+
+function ChatToolbar({ documents, canDelete, onDelete, canStartNewChat, onNewChat }: Readonly<ChatToolbarProps>) {
+  return (
+    <div className="chat-toolbar">
+      {documents.length > 0 && (
+        <details className="chat-documents">
+          <summary>Documents ({documents.length})</summary>
+          <ul>
+            {documents.map((name) => (
+              <li key={name}>
+                <span>{name}</span>
+                <button
+                  aria-label={`Delete ${name}`}
+                  className="chat-document-delete"
+                  disabled={!canDelete}
+                  type="button"
+                  onClick={() => onDelete(name)}
+                  title={canDelete ? "Delete document" : "Wait until LLASER is done"}
+                >
+                  ✕
+                </button>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+      <button className="chat-new-button" disabled={!canStartNewChat} type="button" onClick={onNewChat}>
+        New chat
+      </button>
     </div>
   );
 }
@@ -108,6 +166,8 @@ function ChatPage({ isVisible = true }: Readonly<{ isVisible?: boolean }>) {
   });
   // null until the backend tells: answers then show safely, but no badge claims the setting is on.
   const [safeRendering, setSafeRendering] = useState<boolean | null>(null);
+  const [model, setModel] = useState<string | null>(null);
+  const [customPrompt, setCustomPrompt] = useState<boolean | null>(null);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const hasMessages = chat.length > 0;
@@ -119,6 +179,12 @@ function ChatPage({ isVisible = true }: Readonly<{ isVisible?: boolean }>) {
         setDefenses({ homebrew: cfg.homebrew_status, nlp: cfg.nlp_defense_status });
         setSafeRendering(cfg.safe_answer_rendering);
       })
+      .catch(() => {});
+    fetchCurrentModel()
+      .then(setModel)
+      .catch(() => {});
+    fetchSystemPrompt()
+      .then((p) => setCustomPrompt(p.prompt !== p.default_prompt))
       .catch(() => {});
   }, []);
 
@@ -149,7 +215,7 @@ function ChatPage({ isVisible = true }: Readonly<{ isVisible?: boolean }>) {
   const canSend = canInteract && !isStreaming && !blockedAlertId;
   const readyPlaceholder = blockedAlertId
     ? "Waiting for review on the Alerts page..."
-    : "what would you like to know?";
+    : "Ask a question, or try an attack";
   const inputPlaceholder = isReady ? readyPlaceholder : "Chat will be available when the AI system is ready...";
   
   useEffect(() => {
@@ -266,16 +332,24 @@ function ChatPage({ isVisible = true }: Readonly<{ isVisible?: boolean }>) {
     }
   };
 
+  // A new session: the old chat's messages and any block waiting for review stay behind.
+  const handleNewChat = () => {
+    newSessionId();
+    setChat([]);
+    setBlockedAlertId(null);
+    setMessage("");
+  };
+
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     handleSend();
   };
 
-  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      handleSend();
-    }
+  // Enter sends, Shift+Enter adds a line; Enter that confirms an input method (e.g. Japanese) does neither.
+  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key !== "Enter" || e.shiftKey || e.nativeEvent.isComposing) return;
+    e.preventDefault();
+    void handleSend();
   };
 
   return (
@@ -311,28 +385,13 @@ function ChatPage({ isVisible = true }: Readonly<{ isVisible?: boolean }>) {
         )}
 
         <div className={`chat-card ${hasMessages ? "chat-card--active" : ""}`}>
-          {documents.length > 0 && (
-            <details className="chat-documents">
-              <summary>Documents ({documents.length})</summary>
-              <ul>
-                {documents.map((name) => (
-                  <li key={name}>
-                    <span>{name}</span>
-                    <button
-                      aria-label={`Delete ${name}`}
-                      className="chat-document-delete"
-                      disabled={!canSend}
-                      type="button"
-                      onClick={() => void handleDelete(name)}
-                      title={canSend ? "Delete document" : "Wait until LLASER is done"}
-                    >
-                      ✕
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </details>
-          )}
+          <ChatToolbar
+            documents={documents}
+            canDelete={canSend}
+            onDelete={(name) => void handleDelete(name)}
+            canStartNewChat={!isStreaming && !isUploading && !isDeleting}
+            onNewChat={handleNewChat}
+          />
 
           <div className="chat-scroll-area">
             {chat.map((msg, index) => (
@@ -351,10 +410,13 @@ function ChatPage({ isVisible = true }: Readonly<{ isVisible?: boolean }>) {
                 )}
               </div>
             ))}
+            {isReady && documents.length === 0 && (
+              <output className="chat-notice">
+                No documents uploaded. LLASER answers only from uploaded documents: add PDFs with 📎.
+              </output>
+            )}
             <div ref={chatEndRef} />
           </div>
-
-          <DefenseBar defenses={defenses} safeRendering={safeRendering === true} />
 
           <form className="chat-input-bar" onSubmit={handleSubmit}>
             <input
@@ -378,12 +440,12 @@ function ChatPage({ isVisible = true }: Readonly<{ isVisible?: boolean }>) {
             >
               📎
             </button>
-            <input
-              aria-label="what would you like to know?"
-              type="text"
+            <textarea
+              aria-label="Message"
+              rows={1}
               placeholder={inputPlaceholder}
               value={message}
-              onChange={(e: ChangeEvent<HTMLInputElement>) => setMessage(e.target.value)}
+              onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setMessage(e.target.value)}
               onKeyDown={handleKeyDown}
               className="chat-input"
               disabled={!canInteract}
@@ -397,6 +459,13 @@ function ChatPage({ isVisible = true }: Readonly<{ isVisible?: boolean }>) {
               <img src={sendIconSrc} alt="" aria-hidden="true" className="chat-send-icon" />
             </button>
           </form>
+
+          <DefenseBar
+            defenses={defenses}
+            safeRendering={safeRendering === true}
+            model={model}
+            customPrompt={customPrompt}
+          />
         </div>
       </div>
     </section>

@@ -1,6 +1,6 @@
 
 // Generate or retrieve session ID
-const getSessionId = (): string => {
+export const getSessionId = (): string => {
   let sessionId = sessionStorage.getItem("chat_session_id");
   if (!sessionId) {
     // getRandomValues, not randomUUID: the app is served over plain HTTP, where randomUUID is missing.
@@ -9,6 +9,12 @@ const getSessionId = (): string => {
     sessionStorage.setItem("chat_session_id", sessionId);
   }
   return sessionId;
+};
+
+// Forgets this tab's session: the next question starts a new chat, free of any block on the old one.
+export const newSessionId = (): string => {
+  sessionStorage.removeItem("chat_session_id");
+  return getSessionId();
 };
 
 const responseError = async (response: Response): Promise<Error> => {

@@ -20,6 +20,14 @@
   color: #1f2937;
 }
 
+.alerts-subtitle {
+  margin: 8px 0 0;
+  max-width: 720px;
+  color: #4b5563;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
 .refresh-btn {
   padding: 8px 16px;
   background-color: #3b82f6;
@@ -53,6 +61,16 @@
 
 .filter-section {
   margin-bottom: 24px;
+}
+
+.redteam-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  color: #374151;
+  font-size: 14px;
+  cursor: pointer;
 }
 
 .filter-buttons {
@@ -126,27 +144,11 @@
   gap: 16px;
 }
 
-.alert-title-section {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex: 1;
-}
-
 .alert-title {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
   color: #1f2937;
-}
-
-.risk-badge {
-  display: inline-block;
-  padding: 4px 12px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 700;
-  white-space: nowrap;
 }
 
 .alert-timestamp {
@@ -191,6 +193,14 @@
   overflow-y: auto;
 }
 
+.reason-text {
+  margin: 0;
+  color: #374151;
+  font-size: 14px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .threat-tags {
   display: flex;
   flex-wrap: wrap;
@@ -205,13 +215,6 @@
   border-radius: 4px;
   font-size: 12px;
   font-weight: 500;
-}
-
-.session-id {
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-  font-size: 12px;
-  color: #4b5563;
-  word-break: break-all;
 }
 
 .status-badge {
@@ -300,10 +303,6 @@
   .alert-header-row {
     flex-direction: column;
     align-items: flex-start;
-  }
-
-  .alert-title-section {
-    flex-direction: column;
   }
 
   .alert-actions {

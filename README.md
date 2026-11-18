@@ -75,7 +75,7 @@ All four are on the **Controls** page. They stay changed until the app restarts.
 | LLM defense | Off | A language model on the PXL DGX Spark classifies each question as safe or malicious before the chat model sees it. If the Spark is unreachable, a Qwen model on OpenRouter takes over and the status shows "Active (OpenRouter fallback)". |
 | NLP defense | Off | A small classifier on your laptop does the same: faster, less accurate. Move the threshold slider to see the trade-off. |
 
-For a defense: tick it, click "Apply changes", then wait until the status shows Active. `query blocked` means that a defense caught your question. After that, your tab's session stays blocked until you accept or deny the alert on the **Alerts** page, or until you open a new tab.
+For a defense: tick it (it applies at once), then wait until the status shows Active. `query blocked` means that a defense caught your question. After that, your tab's session stays blocked until you accept or deny the alert on the **Alerts** page, or until you open a new tab.
 
 ### Prompts to try
 
@@ -140,7 +140,7 @@ The attack set is in the repo (`promptfoo/attack-sets/workshop.yaml`): 72 attack
 4. Change **one** setting on the Controls page, wait until a defense shows Active, then start a new run with a name that says what you changed, for example `nlp-defense`, `nlp-0.7`, `no-rule` or `mistral`.
 5. Compare the runs in the table: how many attacks got through, per setting. **Report** and **Answers** open the details in promptfoo (http://127.0.0.1:3002; set `PROMPTFOO_PORT` in `.env` if 3002 is taken).
 
-The page refuses a name you already used, a defense that is on but not yet Active, and a second run while one is going. With a defense on, blocked attacks show up on the Alerts page; you do not have to review them for the run.
+The page refuses a name you already used, a defense that is on but not yet Active, and a second run while one is going. With a defense on, blocked attacks show up on the Alerts page when you tick **Show red-team run alerts**; you do not have to review them for the run.
 
 Checking a change quickly? The **Quick check** set has 12 attacks and takes about a minute; compare settings with the workshop set, which has more attacks. Time left? The **Full** set has 216 attacks of 11 types, including multi-turn attacks, and takes 45-60 minutes.
 

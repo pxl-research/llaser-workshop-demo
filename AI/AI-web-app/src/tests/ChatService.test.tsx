@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { fetchAcceptedAnswer, fetchAlertStatus, sendMessageToAPI } from "../services/ChatService";
+import { fetchAcceptedAnswer, fetchAlertStatus, getSessionId, newSessionId, sendMessageToAPI } from "../services/ChatService";
 
 const mockFetch = vi.fn();
 vi.stubGlobal("fetch", mockFetch);
@@ -165,5 +165,24 @@ describe("review of a blocked question", () => {
     expect(pieces).toEqual(["Accepted ", "answer"]);
     expect(mockFetch.mock.calls[1][0]).toBe("/api/prompt-alerts/alert-1/release");
     expect(JSON.parse(mockFetch.mock.calls[1][1].body)).toEqual({ session_id: sessionId });
+  });
+});
+
+describe("newSessionId", () => {
+  beforeEach(() => {
+    mockFetch.mockReset();
+    sessionStorage.clear();
+  });
+
+  it("starts a new session that the next question uses", async () => {
+    const first = getSessionId();
+    const next = newSessionId();
+
+    expect(next).not.toBe(first);
+    expect(getSessionId()).toBe(next);
+
+    mockFetch.mockResolvedValueOnce(okResponse(event({ delta: "ok" })));
+    await collect("Next question");
+    expect(JSON.parse(mockFetch.mock.calls[0][1].body).session_id).toBe(next);
   });
 });

@@ -166,6 +166,22 @@ def update_system_prompt(request: SystemPromptUpdateRequest):
     return get_system_prompt()
 
 
+def _cheapest_zdr_pricing(endpoints: list) -> dict:
+    """Per model, the pricing of its cheapest ZDR endpoint (prompt + completion); the listed price can be
+    another provider's, one the account never uses."""
+    cheapest = {}
+    for endpoint in endpoints:
+        pricing = endpoint.get("pricing") or {}
+        try:
+            cost = float(pricing["prompt"]) + float(pricing["completion"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        model_id = endpoint.get("model_id")
+        if model_id not in cheapest or cost < cheapest[model_id][0]:
+            cheapest[model_id] = (cost, pricing)
+    return {model_id: pricing for model_id, (_, pricing) in cheapest.items()}
+
+
 @app.get("/available-llms")
 def get_all_llms():
     logger.info("Fetching available LLMs from OpenRouter")
@@ -182,7 +198,9 @@ def get_all_llms():
             timeout=settings.PROVIDER_TIMEOUT_SECONDS,
         )
         zdr.raise_for_status()
-        zdr_ids = {e.get("model_id") for e in zdr.json().get("data", [])}
+        zdr_endpoints = zdr.json().get("data", [])
+        zdr_ids = {e.get("model_id") for e in zdr_endpoints}
+        zdr_pricing = _cheapest_zdr_pricing(zdr_endpoints)
     except requests.RequestException:
         logger.exception("Failed to fetch LLM models from provider")
         raise HTTPException(status_code=502, detail="Failed to fetch LLM models")
@@ -194,12 +212,13 @@ def get_all_llms():
     for model in models:
         if model.get("id") not in zdr_ids:
             continue
+        pricing = zdr_pricing.get(model.get("id")) or model.get("pricing", {})
         result.append(
             {
                 "name": model.get("name"),
                 "context_length": model.get("context_length"),
-                "prompt_price": model.get("pricing", {}).get("prompt"),
-                "completion_price": model.get("pricing", {}).get("completion"),
+                "prompt_price": pricing.get("prompt"),
+                "completion_price": pricing.get("completion"),
                 "description": model.get("description"),
                 "input_modalities": model.get("architecture", {}).get("input_modalities"),
                 "id": model.get("id"),

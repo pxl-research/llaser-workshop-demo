@@ -86,7 +86,14 @@
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-card);
   backdrop-filter: blur(20px);
-  width: 900px;
+  width: 100%;
+  max-width: 900px;
+}
+
+/* Once the chat starts, the intro column is gone: the card takes the whole row. */
+.chat-card--active {
+  grid-column: 1 / -1;
+  justify-self: center;
 }
 
 .chat-card::before {
@@ -103,7 +110,7 @@
   position: relative;
   z-index: 1;
   flex: 1;
-  padding: 28px 28px 118px;
+  padding: 28px;
   overflow-y: auto;
 }
 
@@ -211,14 +218,13 @@
   .typing-dots span { animation: none; opacity: 0.6; }
 }
 
+/* In the flow, above the status bar: a taller (multi-line) input pushes the chat up instead of covering it. */
 .chat-input-bar {
-  position: absolute;
-  right: 22px;
-  bottom: 22px;
-  left: 22px;
+  position: relative;
+  margin: 0 22px;
   z-index: 2;
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: var(--space-3);
   padding: 10px;
   background: rgba(255, 255, 255, 0.96);
@@ -235,7 +241,14 @@
   background: transparent;
   border: 0;
   outline: none;
+  font: inherit;
   font-size: 1rem;
+  line-height: 1.5;
+  /* Grows with its text up to about 6 lines, then scrolls. */
+  field-sizing: content;
+  max-height: calc(6 * 1.5em + 28px);
+  overflow-y: auto;
+  resize: none;
 }
 
 .chat-input::placeholder {
@@ -338,7 +351,7 @@
   }
 
   .chat-scroll-area {
-    padding: 22px 18px 110px;
+    padding: 22px 18px;
   }
 
   .assistant-message,
@@ -347,9 +360,7 @@
   }
 
   .chat-input-bar {
-    right: 14px;
-    bottom: 14px;
-    left: 14px;
+    margin: 0 14px;
     border-radius: 20px;
   }
 
@@ -367,7 +378,7 @@
   justify-content: center;
   gap: 8px;
   flex-wrap: wrap;
-  padding: 6px 0;
+  padding: 8px 14px 12px;
 }
 
 .chat-defense-badge {
@@ -375,6 +386,11 @@
   font-weight: 600;
   padding: 3px 10px;
   border-radius: 999px;
+}
+
+.chat-defense-badge--info {
+  background: #e0e7ff;
+  color: #3730a3;
 }
 
 .chat-defense-badge--off {
@@ -397,13 +413,48 @@
   color: #991b1b;
 }
 
-/* Top of the card: the bottom is under the absolutely positioned input bar. */
-.chat-documents {
+.chat-toolbar {
   position: relative;
   z-index: 1;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 28px 0;
+}
+
+.chat-documents {
+  flex: 1;
   font-size: 12px;
   color: #4b5563;
-  padding: 12px 28px 0;
+}
+
+.chat-new-button {
+  margin-left: auto;
+  padding: 4px 12px;
+  color: #374151;
+  background: rgba(248, 250, 252, 0.9);
+  border: 1px solid rgba(203, 213, 225, 0.95);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.chat-new-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.chat-notice {
+  display: block;
+  margin: 0 auto;
+  max-width: 480px;
+  padding: 10px 14px;
+  color: #92400e;
+  background: #fef3c7;
+  border-radius: 12px;
+  font-size: 14px;
+  text-align: center;
 }
 
 .chat-documents summary {
