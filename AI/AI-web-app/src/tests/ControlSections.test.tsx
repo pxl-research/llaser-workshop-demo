@@ -12,6 +12,8 @@ const routes: Record<string, unknown> = {
   "/api/available-llms": [
     { id: "pricey/model", name: "Pricey", prompt_price: "0.000003", completion_price: "0.000015" },
     { id: "cheap/model", name: "Cheap", prompt_price: "0.0000001", completion_price: "0.0000003" },
+    { id: "openai/gpt-4o-mini", name: "GPT-4o mini", prompt_price: "0.00000015", completion_price: "0.0000006" },
+    { id: "mistralai/mistral-nemo", name: "Nemo", prompt_price: "0.00000003", completion_price: "0.00000003" },
   ],
 };
 
@@ -49,6 +51,7 @@ describe("control sections", () => {
     render(<ModelSection />);
     await waitFor(() => expect(screen.getByText(/Current:/).textContent).toContain("($0.10"));
 
+    fireEvent.click(screen.getByRole("button", { name: "Show all 4 models" }));
     fireEvent.click(screen.getByLabelText("Select Pricey"));
     fireEvent.click(screen.getByRole("button", { name: "Use this model" }));
 
@@ -62,13 +65,61 @@ describe("control sections", () => {
     render(<ModelSection />);
 
     expect(await screen.findByLabelText("Select Cheap")).toBeChecked();
-    expect(screen.getByText("2 models")).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: "Show all 4 models" }));
+    expect(screen.getByText("4 models")).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Search models"), { target: { value: "pric" } });
 
     expect(screen.queryByLabelText("Select Cheap")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Select Pricey")).toBeInTheDocument();
     expect(screen.getByText("1 models")).toBeInTheDocument();
+  });
+
+  it("shows the workshop picks and the current model by default", async () => {
+    render(<ModelSection />);
+
+    expect(await screen.findByLabelText("Select GPT-4o mini")).toBeInTheDocument();
+    expect(screen.getByLabelText("Select Nemo")).toBeInTheDocument();
+    expect(screen.getByLabelText("Select Cheap")).toBeChecked();
+    expect(screen.queryByLabelText("Select Pricey")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Search models")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Next page" })).not.toBeInTheDocument();
+  });
+
+  it("switches between all models and the workshop picks", async () => {
+    render(<ModelSection />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Show all 4 models" }));
+    expect(screen.getByLabelText("Select Pricey")).toBeInTheDocument();
+    expect(screen.getByLabelText("Search models")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Show workshop picks" }));
+    expect(screen.queryByLabelText("Select Pricey")).not.toBeInTheDocument();
+  });
+
+  it("selects a model with a radio button or a click on its row", async () => {
+    render(<ModelSection />);
+
+    const nemo = await screen.findByLabelText("Select Nemo");
+    expect(nemo).toHaveAttribute("type", "radio");
+    expect(nemo).toHaveAttribute("name", "chat-model");
+
+    fireEvent.click(screen.getByText("mistralai/mistral-nemo"));
+    expect(nemo).toBeChecked();
+    expect(screen.getByLabelText("Select Cheap")).not.toBeChecked();
+    expect(screen.getByRole("button", { name: "Use this model" })).toBeEnabled();
+  });
+
+  it("says the edited prompt is not applied yet, until Apply", async () => {
+    render(<SystemPromptSection />);
+
+    const box = await screen.findByDisplayValue("Active {context}");
+    expect(screen.queryByText("Not applied yet")).not.toBeInTheDocument();
+    fireEvent.change(box, { target: { value: "Rule first. {context}" } });
+    expect(screen.getByText("Not applied yet")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Apply prompt" }));
+    await waitFor(() => expect(screen.queryByText("Not applied yet")).not.toBeInTheDocument());
   });
 
   it("applies an edited system prompt", async () => {

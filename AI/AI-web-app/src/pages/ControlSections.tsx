@@ -16,6 +16,14 @@ const priceLabel = (m: LlmModel) =>
 
 const PAGE_SIZE = 25;
 
+// The models README.md compares ("Models to compare").
+const WORKSHOP_MODELS = [
+  "meta-llama/llama-3.3-70b-instruct",
+  "openai/gpt-6-luna",
+  "openai/gpt-4o-mini",
+  "mistralai/mistral-nemo",
+];
+
 const compact = (n?: number | null) => {
   if (n == null) return "—";
   if (n >= 1_000_000) return `${Math.round(n / 1_000_000)}M`;
@@ -23,8 +31,119 @@ const compact = (n?: number | null) => {
   return String(n);
 };
 
+interface ModelTableProps {
+  rows: LlmModel[];
+  choice: string;
+  onChoose: (id: string) => void;
+}
+
+// A click anywhere on a row selects it: every cell is a label of the row's radio button.
+function ModelTable({ rows, choice, onChoose }: Readonly<ModelTableProps>) {
+  return (
+    <div className="lt-table-wrap">
+      <table className="lt-table">
+        <colgroup>
+          <col style={{ width: "8%" }} />
+          <col style={{ width: "44%" }} />
+          <col style={{ width: "16%" }} />
+          <col style={{ width: "16%" }} />
+          <col style={{ width: "16%" }} />
+        </colgroup>
+        <thead>
+          <tr>
+            <th className="lt-th"></th>
+            <th className="lt-th">Name</th>
+            <th className="lt-th">Context</th>
+            <th className="lt-th">Input /1M</th>
+            <th className="lt-th">Output /1M</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((m) => {
+            const inputId = `chat-model-${m.id}`;
+            return (
+              <tr key={m.id} className="lt-tr">
+                <td className="lt-td lt-center">
+                  <input
+                    id={inputId}
+                    type="radio"
+                    name="chat-model"
+                    checked={m.id === choice}
+                    onChange={() => onChoose(m.id)}
+                    aria-label={`Select ${m.name}`}
+                  />
+                </td>
+                <td className="lt-td">
+                  <label htmlFor={inputId} className="lt-row-label">
+                    <div className="lt-strong">{m.name}</div>
+                    <div className="lt-id">{m.id}</div>
+                  </label>
+                </td>
+                <td className="lt-td lt-num">
+                  <label htmlFor={inputId} className="lt-row-label">
+                    {compact(m.context_length)}
+                  </label>
+                </td>
+                <td className="lt-td lt-num">
+                  <label htmlFor={inputId} className="lt-row-label">
+                    {pricePerMillion(m.prompt_price)}
+                  </label>
+                </td>
+                <td className="lt-td lt-num">
+                  <label htmlFor={inputId} className="lt-row-label">
+                    {pricePerMillion(m.completion_price)}
+                  </label>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+interface PagerProps {
+  page: number;
+  totalPages: number;
+  onPage: (page: number) => void;
+}
+
+function Pager({ page, totalPages, onPage }: Readonly<PagerProps>) {
+  return (
+    <div className="lt-pager">
+      <button className="lt-icon-btn" onClick={() => onPage(1)} disabled={page === 1} aria-label="First page">
+        «
+      </button>
+      <button className="lt-icon-btn" onClick={() => onPage(page - 1)} disabled={page === 1} aria-label="Previous page">
+        ‹
+      </button>
+      <span>
+        Page {page} / {totalPages}
+      </span>
+      <button
+        className="lt-icon-btn"
+        onClick={() => onPage(page + 1)}
+        disabled={page === totalPages}
+        aria-label="Next page"
+      >
+        ›
+      </button>
+      <button
+        className="lt-icon-btn"
+        onClick={() => onPage(totalPages)}
+        disabled={page === totalPages}
+        aria-label="Last page"
+      >
+        »
+      </button>
+    </div>
+  );
+}
+
 export function ModelSection() {
   const [models, setModels] = useState<LlmModel[]>([]);
+  const [showAll, setShowAll] = useState(false);
   const [current, setCurrent] = useState("");
   const [choice, setChoice] = useState("");
   const [search, setSearch] = useState("");
@@ -45,6 +164,7 @@ export function ModelSection() {
   }, []);
 
   const currentModel = models.find((m) => m.id === current);
+  const picks = models.filter((m) => WORKSHOP_MODELS.includes(m.id) || m.id === current);
   const query = search.trim().toLowerCase();
   const rows = models.filter((m) => `${m.name} ${m.id}`.toLowerCase().includes(query));
   const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
@@ -78,14 +198,16 @@ export function ModelSection() {
       </p>
       {error && <p className="security-error">{error}</p>}
       <div className="lt-topbar">
-        <input
-          className="lt-search"
-          aria-label="Search models"
-          placeholder="Search by name"
-          value={search}
-          onChange={(e) => onSearch(e.target.value)}
-          onKeyDown={(e) => e.key === "Escape" && onSearch("")}
-        />
+        {showAll && (
+          <input
+            className="lt-search"
+            aria-label="Search models"
+            placeholder="Search by name"
+            value={search}
+            onChange={(e) => onSearch(e.target.value)}
+            onKeyDown={(e) => e.key === "Escape" && onSearch("")}
+          />
+        )}
         <button
           className="security-apply__btn"
           onClick={() => void apply()}
@@ -94,79 +216,21 @@ export function ModelSection() {
           {busy ? "Switching…" : "Use this model"}
         </button>
       </div>
-      <div className="lt-table-wrap">
-        <table className="lt-table">
-          <colgroup>
-            <col style={{ width: "8%" }} />
-            <col style={{ width: "44%" }} />
-            <col style={{ width: "16%" }} />
-            <col style={{ width: "16%" }} />
-            <col style={{ width: "16%" }} />
-          </colgroup>
-          <thead>
-            <tr>
-              <th className="lt-th"></th>
-              <th className="lt-th">Name</th>
-              <th className="lt-th">Context</th>
-              <th className="lt-th">Input /1M</th>
-              <th className="lt-th">Output /1M</th>
-            </tr>
-          </thead>
-          <tbody>
-            {pageRows.map((m) => {
-              const selected = m.id === choice;
-              return (
-                <tr key={m.id} className="lt-tr">
-                  <td className="lt-td lt-center">
-                    <input
-                      type="checkbox"
-                      checked={selected}
-                      onChange={() => setChoice(selected ? "" : m.id)}
-                      aria-label={`Select ${m.name}`}
-                    />
-                  </td>
-                  <td className="lt-td">
-                    <div className="lt-strong">{m.name}</div>
-                    <div className="lt-id">{m.id}</div>
-                  </td>
-                  <td className="lt-td lt-num">{compact(m.context_length)}</td>
-                  <td className="lt-td lt-num">{pricePerMillion(m.prompt_price)}</td>
-                  <td className="lt-td lt-num">{pricePerMillion(m.completion_price)}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+      <ModelTable rows={showAll ? pageRows : picks} choice={choice} onChoose={setChoice} />
       <div className="lt-footer">
-        <span>{rows.length.toLocaleString()} models</span>
-        <div className="lt-pager">
-          <button className="lt-icon-btn" onClick={() => setPage(1)} disabled={page === 1} aria-label="First page">
-            «
+        {showAll ? (
+          <>
+            <span>{rows.length.toLocaleString()} models</span>
+            <button className="lt-link-btn" onClick={() => setShowAll(false)}>
+              Show workshop picks
+            </button>
+            <Pager page={page} totalPages={totalPages} onPage={setPage} />
+          </>
+        ) : (
+          <button className="lt-link-btn" onClick={() => setShowAll(true)}>
+            Show all {models.length.toLocaleString()} models
           </button>
-          <button className="lt-icon-btn" onClick={() => setPage(page - 1)} disabled={page === 1} aria-label="Previous page">
-            ‹
-          </button>
-          <span>
-            Page {page} / {totalPages}
-          </span>
-          <button
-            className="lt-icon-btn"
-            onClick={() => setPage(page + 1)}
-            disabled={page === totalPages}
-            aria-label="Next page"
-          >
-            ›
-          </button>
-          <button
-            className="lt-icon-btn"
-            onClick={() => setPage(totalPages)}
-            disabled={page === totalPages}
-            aria-label="Last page"
-          >
-            »
-          </button>
-        </div>
+        )}
       </div>
     </section>
   );
@@ -232,6 +296,7 @@ export function SystemPromptSection() {
         >
           Reset to default
         </button>
+        {active !== null && draft !== active && <span className="controls-pending">Not applied yet</span>}
       </div>
     </section>
   );

@@ -320,36 +320,34 @@
   font-variant-numeric: tabular-nums;
 }
 
-.lt-table input[type="checkbox"] {
-  appearance: none;
-  margin: 0;
+.lt-table input[type="radio"] {
   width: 18px;
   height: 18px;
-  border: 1px solid #d4d8e1;
-  border-radius: 4px;
-  background: #fff;
+  margin: 0;
+  accent-color: #5b7cff;
   cursor: pointer;
-  display: inline-grid;
-  place-content: center;
-  transition: background-color 0.15s, border-color 0.15s;
 }
 
-.lt-table input[type="checkbox"]:checked {
-  background: #5b7cff;
-  border-color: #5b7cff;
+.lt-row-label {
+  display: block;
+  cursor: pointer;
 }
 
-.lt-table input[type="checkbox"]:checked::before {
-  content: "";
-  width: 10px;
-  height: 10px;
-  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="none" stroke="%23ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" d="M4 12.6l4.2 4.2 12.8-12.8"/></svg>');
-  background-size: cover;
+.lt-link-btn {
+  padding: 0;
+  border: none;
+  background: none;
+  color: #2563eb;
+  font-size: 14px;
+  text-decoration: underline;
+  cursor: pointer;
 }
 
-.lt-table input[type="checkbox"]:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(111, 139, 255, 0.25);
+.controls-pending {
+  align-self: center;
+  color: #92400e;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .lt-footer,

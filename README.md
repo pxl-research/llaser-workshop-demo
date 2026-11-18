@@ -75,7 +75,7 @@ All four are on the **Controls** page. They stay changed until the app restarts.
 | LLM defense | Off | A language model on the PXL DGX Spark classifies each question as safe or malicious before the chat model sees it. If the Spark is unreachable, a Qwen model on OpenRouter takes over and the status shows "Active (OpenRouter fallback)". |
 | NLP defense | Off | A small classifier on your laptop does the same: faster, less accurate. Move the threshold slider to see the trade-off. |
 
-For a defense: tick it, click "Apply changes", then wait until the status shows Active. `query blocked` means that a defense caught your question. After that, your tab's session stays blocked until you accept or deny the alert on the **Alerts** page, or until you open a new tab.
+For a defense: tick it (it applies at once), then wait until the status shows Active. `query blocked` means that a defense caught your question. After that, your tab's session stays blocked until you accept or deny the alert on the **Alerts** page, or until you open a new tab.
 
 ### Prompts to try
 

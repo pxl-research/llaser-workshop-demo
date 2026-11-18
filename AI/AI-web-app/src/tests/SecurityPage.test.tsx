@@ -37,19 +37,85 @@ describe("SecurityPage", () => {
     vi.stubGlobal("fetch", mockFetch);
   });
 
-  it("applies a toggled defense with a POST to the security config", async () => {
+  it("applies a ticked defense at once, without an Apply button", async () => {
     renderSecurityPage();
 
-    fireEvent.click(await screen.findByRole("checkbox", { name: /LLM-based defense/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Apply changes" }));
+    fireEvent.click(await screen.findByRole("checkbox", { name: /^LLM defense/ }));
 
     await waitFor(() => {
       expect(mockFetch.mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(1);
     });
     const [url, init] = mockFetch.mock.calls.find(([, init]) => init?.method === "POST")!;
     expect(url).toBe("/api/security-config");
-    expect(init.method).toBe("POST");
-    expect(JSON.parse(init.body)).toEqual({ use_homebrew: true, use_nlp_defense: false });
+    expect(JSON.parse(init.body)).toEqual({ use_homebrew: true });
+    expect(screen.queryByRole("button", { name: "Apply changes" })).not.toBeInTheDocument();
+    expect(screen.getByText("Every change applies at once and lasts until the app restarts.")).toBeInTheDocument();
+  });
+
+  it("applies the NLP defense at once", async () => {
+    renderSecurityPage();
+
+    fireEvent.click(await screen.findByRole("checkbox", { name: /^NLP defense/ }));
+
+    await waitFor(() => {
+      const post = mockFetch.mock.calls.find(([, init]) => init?.method === "POST");
+      expect(JSON.parse(post![1].body)).toEqual({ use_nlp_defense: true });
+    });
+  });
+
+  it("disables only the defense that is loading", async () => {
+    renderSecurityPage({ use_nlp_defense: true, nlp_defense_status: "loading" });
+
+    expect(await screen.findByRole("checkbox", { name: /^NLP defense/ })).toBeDisabled();
+    expect(screen.getByRole("checkbox", { name: /^LLM defense/ })).toBeEnabled();
+  });
+
+  it("puts the prompt defenses first", async () => {
+    renderSecurityPage();
+
+    await screen.findByRole("heading", { name: "Chat Model" });
+    expect(screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent)).toEqual([
+      "Prompt Defenses",
+      "System Prompt",
+      "Chat Model",
+      "Answer Rendering",
+    ]);
+  });
+
+  it("shows a defense error under its own row", async () => {
+    renderSecurityPage({ use_homebrew: true, homebrew_status: "error", homebrew_error: "Spark and OpenRouter failed" });
+
+    const message = await screen.findByText("Spark and OpenRouter failed");
+    const row = message.closest(".defense-item") as HTMLElement;
+    expect(row).toContainElement(screen.getByRole("checkbox", { name: /^LLM defense/ }));
+  });
+
+  it("explains the threshold, and how to use it while the NLP defense is off", async () => {
+    renderSecurityPage();
+    expect(await screen.findByText("Switch on the NLP defense to use the threshold.")).toBeInTheDocument();
+
+    cleanup();
+    renderSecurityPage({ use_nlp_defense: true, nlp_defense_status: "ready" });
+    expect(
+      await screen.findByText(
+        "A question is blocked when its NLP score is at or above this value. Lower: blocks more, also harmless questions. Higher: lets more attacks through."
+      )
+    ).toBeInTheDocument();
+  });
+
+  it("describes both defenses", async () => {
+    renderSecurityPage({ nlp_model_version: "v1" });
+
+    expect(
+      await screen.findByText(
+        "A small classifier (DistilBERT) on this laptop gives each question a score from 0 to 1. Model v1."
+      )
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "A Qwen model on the PXL DGX Spark labels each question safe or malicious. If the Spark is unreachable, a Qwen model on OpenRouter takes over."
+      )
+    ).toBeInTheDocument();
   });
 
   it("shows the chat model and system prompt sections", async () => {

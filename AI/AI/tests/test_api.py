@@ -988,6 +988,35 @@ class ApiTestCase(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual([m["id"] for m in response.json()], ["openai/gpt-oss-120b"])
 
+    async def test_available_llms_price_is_the_cheapest_zdr_endpoint(self):
+        # The account only uses ZDR endpoints; the model's listed price can be another provider's.
+        listed = {"prompt": "0.00000071", "completion": "0.00000071"}
+
+        def get(url, timeout=None):
+            response = types.SimpleNamespace(raise_for_status=lambda: None)
+            if url.endswith("/models"):
+                response.json = lambda: {"data": [
+                    {"id": "meta-llama/llama-3.3-70b-instruct", "name": "Llama", "pricing": listed},
+                    {"id": "openai/gpt-oss-120b", "name": "GPT OSS", "pricing": listed},
+                ]}
+            else:
+                response.json = lambda: {"data": [
+                    {"model_id": "meta-llama/llama-3.3-70b-instruct", "pricing": listed},
+                    {"model_id": "meta-llama/llama-3.3-70b-instruct",
+                     "pricing": {"prompt": "0.0000001", "completion": "0.00000032"}},
+                    {"model_id": "meta-llama/llama-3.3-70b-instruct", "pricing": {"prompt": None}},
+                    {"model_id": "openai/gpt-oss-120b"},
+                ]}
+            return response
+
+        with patch.object(api_module.requests, "get", side_effect=get):
+            response = await self.client.get("/available-llms")
+
+        prices = {m["id"]: (m["prompt_price"], m["completion_price"]) for m in response.json()}
+        self.assertEqual(prices["meta-llama/llama-3.3-70b-instruct"], ("0.0000001", "0.00000032"))
+        # No ZDR price known: the listed price.
+        self.assertEqual(prices["openai/gpt-oss-120b"], ("0.00000071", "0.00000071"))
+
     async def test_available_llms_zdr_failure_returns_502(self):
         get = self._openrouter_get([], zdr_error=requests.ConnectionError("zdr down"))
         with patch.object(api_module.requests, "get", side_effect=get):
