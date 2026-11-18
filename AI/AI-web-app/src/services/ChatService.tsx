@@ -11,6 +11,12 @@ export const getSessionId = (): string => {
   return sessionId;
 };
 
+// Forgets this tab's session: the next question starts a new chat, free of any block on the old one.
+export const newSessionId = (): string => {
+  sessionStorage.removeItem("chat_session_id");
+  return getSessionId();
+};
+
 const responseError = async (response: Response): Promise<Error> => {
   const generic = `API error: ${response.status}`;
   let detail = generic;
