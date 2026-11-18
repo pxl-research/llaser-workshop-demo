@@ -1,6 +1,6 @@
 
 // Generate or retrieve session ID
-const getSessionId = (): string => {
+export const getSessionId = (): string => {
   let sessionId = sessionStorage.getItem("chat_session_id");
   if (!sessionId) {
     // getRandomValues, not randomUUID: the app is served over plain HTTP, where randomUUID is missing.

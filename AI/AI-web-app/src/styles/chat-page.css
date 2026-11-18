@@ -86,7 +86,8 @@
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-card);
   backdrop-filter: blur(20px);
-  width: 900px;
+  width: 100%;
+  max-width: 900px;
 }
 
 .chat-card::before {
