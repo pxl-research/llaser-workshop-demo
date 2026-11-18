@@ -1161,6 +1161,12 @@ class ApiTestCase(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status_code, 422)
         self.assertFalse(settings.SAFE_ANSWER_RENDERING)
 
+    def test_default_system_prompt_loads_from_file_with_context_placeholder(self):
+        self.assertIn("{context}", settings.DEFAULT_SYSTEM_PROMPT)
+        self.assertEqual(settings.DEFAULT_SYSTEM_PROMPT, settings.DEFAULT_SYSTEM_PROMPT.strip())
+        prompt_file = Path(settings.__file__).with_name("system_prompt.txt")
+        self.assertEqual(settings.DEFAULT_SYSTEM_PROMPT, prompt_file.read_text(encoding="utf-8").strip())
+
     async def test_system_prompt_get_returns_active_and_default(self):
         settings.SYSTEM_PROMPT = "Custom {context}"
 
