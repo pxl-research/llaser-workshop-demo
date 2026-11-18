@@ -131,14 +131,14 @@ function AlertsPage() {
   );
 
   useEffect(() => {
-    fetchAlerts();
-    const interval = window.setInterval(fetchAlerts, 10000);
+    void fetchAlerts();
+    const interval = window.setInterval(() => void fetchAlerts(), 10000);
     return () => window.clearInterval(interval);
   }, [fetchAlerts]);
 
   const refresh = () => {
     setLoading(true);
-    fetchAlerts();
+    void fetchAlerts();
   };
 
   const handleAlertAction = async (alertId: string, action: "accept" | "deny") => {

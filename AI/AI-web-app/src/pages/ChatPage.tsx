@@ -349,7 +349,7 @@ function ChatPage({ isVisible = true }: Readonly<{ isVisible?: boolean }>) {
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key !== "Enter" || e.shiftKey || e.nativeEvent.isComposing) return;
     e.preventDefault();
-    handleSend();
+    void handleSend();
   };
 
   return (
