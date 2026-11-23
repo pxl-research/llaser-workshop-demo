@@ -13,39 +13,60 @@ The documents in `corpus/` are synthetic ("FICTIONAL TEST DATA").
 
 You do these steps at the start of the workshop.
 
-### 1. Install Docker
+### 1. Install Docker (and Ubuntu on Windows)
 
-Install Docker Desktop (macOS, Windows with WSL 2) or Docker Engine with the compose plugin (Linux). You need Compose v2 or later, 8 GB RAM and about 5 GB free disk. Docker Desktop is free for personal use and education; Rancher Desktop is a free alternative.
+Install Docker Desktop (macOS, Windows) or Docker Engine with the compose plugin (Linux). You need Compose v2 or later, 8 GB RAM and about 5 GB free disk. Docker Desktop is free for personal use and education. Use a laptop without a company VPN or TLS-inspecting proxy.
 
-Check the version:
+**On Windows**, you run all the commands in this README in an Ubuntu shell, through WSL (Windows Subsystem for Linux):
+
+1. Open PowerShell as administrator and install Ubuntu:
+   ```powershell
+   wsl --install -d Ubuntu
+   ```
+   Restart Windows when it asks you to.
+2. Open **Ubuntu** from the Start menu. The first time, it asks you to choose a Linux user name and password.
+3. In Docker Desktop, open **Settings > Resources > WSL integration**, switch on **Ubuntu**, and click **Apply & restart**.
+
+**On macOS and Linux**, you run the commands in a normal terminal.
+
+Check that Docker works in your shell:
 
 ```bash
 docker compose version
 ```
 
-Use a laptop without a company VPN or TLS-inspecting proxy.
-
 ### 2. Get the app
 
+In your Ubuntu shell (Windows) or terminal (macOS, Linux), clone the repo into your home folder:
+
 ```bash
+cd ~
 git clone https://github.com/pxl-research/llaser-workshop-demo.git
 cd llaser-workshop-demo
 ```
 
-Or download the repo as a zip and unzip it. Then copy the settings file:
+On Windows, keep the repo in the Ubuntu home folder (`~`), not on the Windows drive (`/mnt/c/...`). Docker is much faster there, and the scripts keep their Linux line endings.
 
-- macOS/Linux: `cp .env.example .env`
-- Windows PowerShell: `Copy-Item .env.example .env`
+### 3. Fill in your keys in `.env`
 
-### 3. Fill in `.env`
-
-At the start of the workshop you get an e-mail with a personal Bitwarden Send link. It works only a few times and expires after the workshop, so open it right away. Open `.env` in a text editor and replace these three empty lines with the three lines from the link:
+At the start of the workshop, you get an e-mail with a personal Bitwarden Send link. The link works only a few times and expires after the workshop, so open it right away. It shows three lines with your personal keys:
 
 ```
-OPENROUTER_API_KEY=
-HOMEBREW_BASE_URL=
-HOMEBREW_API_KEY=
+OPENROUTER_API_KEY=...
+HOMEBREW_BASE_URL=...
+HOMEBREW_API_KEY=...
 ```
+
+Put them in the settings file of the app:
+
+1. In your shell, in the `llaser-workshop-demo` folder, copy the example settings file to `.env` and open it in the nano editor:
+   ```bash
+   cp .env.example .env
+   nano .env
+   ```
+2. Find the empty line `OPENROUTER_API_KEY=`, remove it with Ctrl+K, and paste the `OPENROUTER_API_KEY=...` line from the link in its place. In the Ubuntu window on Windows, you paste with a right-click or Ctrl+Shift+V.
+3. Do the same for the empty lines `HOMEBREW_BASE_URL=` and `HOMEBREW_API_KEY=`, further down in the file.
+4. Save with Ctrl+O and Enter, then close nano with Ctrl+X.
 
 The OpenRouter key is personal and has a credit limit. All keys stop working after the workshop. Do not change the other lines.
 
