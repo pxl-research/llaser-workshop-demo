@@ -1,159 +1,136 @@
+/* The Alerts page builds on the Controls page styles (security-page.css); only the differences are here. */
+
+/* As wide as the Red team page, so long prompts have room. */
 .alerts-page {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 24px;
+  max-width: 1100px;
 }
 
+/* Title and subtitle on the left, Refresh on the right, with a thin line under them. */
 .alerts-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid #e5e7eb;
+  align-items: flex-start;
+  gap: 24px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid #f3f4f6;
 }
 
-.alerts-header h1 {
-  margin: 0;
-  font-size: 28px;
-  font-weight: 700;
-  color: #1f2937;
-}
-
-.alerts-subtitle {
-  margin: 8px 0 0;
+.alerts-header .security-subtitle {
   max-width: 720px;
-  color: #4b5563;
-  font-size: 14px;
+  margin-bottom: 16px;
   line-height: 1.5;
 }
 
-.refresh-btn {
-  padding: 8px 16px;
-  background-color: #3b82f6;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
+.alerts-header .security-apply__btn {
+  flex-shrink: 0;
 }
 
-.refresh-btn:hover:not(:disabled) {
-  background-color: #2563eb;
-}
-
-.refresh-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.error-message {
-  background-color: #fee2e2;
-  border: 1px solid #fecaca;
-  border-radius: 8px;
-  padding: 12px 16px;
-  color: #991b1b;
-  margin-bottom: 20px;
-  font-size: 14px;
-}
+/* ===== FILTERS ===== */
 
 .filter-section {
-  margin-bottom: 24px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+/* A row of pill buttons, in the same style as the navigation bar at the top. */
+.filter-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px;
+  background: #f1f5f9;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+}
+
+.filter-btn {
+  padding: 6px 14px;
+  color: #6b7280;
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.filter-btn:hover {
+  color: #1f2937;
+}
+
+.filter-btn.active {
+  color: #2563eb;
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
 }
 
 .redteam-toggle {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  margin-top: 12px;
   color: #374151;
-  font-size: 14px;
+  font-size: 13px;
   cursor: pointer;
 }
 
-.filter-buttons {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.filter-btn {
-  padding: 8px 16px;
-  background-color: #f3f4f6;
-  color: #374151;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: 500;
+.redteam-toggle input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: #2563eb;
   cursor: pointer;
-  transition: all 0.2s ease;
 }
 
-.filter-btn:hover {
-  background-color: #e5e7eb;
-  border-color: #9ca3af;
-}
+/* ===== ALERT CARDS ===== */
 
-.filter-btn.active {
-  background-color: #3b82f6;
-  color: white;
-  border-color: #3b82f6;
-}
-
-.loading-message {
+.alerts-empty {
+  margin: 0;
+  padding: 32px 16px;
   text-align: center;
-  padding: 40px 20px;
   color: #6b7280;
-  font-size: 16px;
-}
-
-.empty-message {
-  text-align: center;
-  padding: 40px 20px;
-  background-color: #f9fafb;
+  font-size: 14px;
+  background: #f9fafb;
+  border: 1px dashed #e5e7eb;
   border-radius: 8px;
-  color: #6b7280;
-  font-size: 16px;
 }
 
 .alerts-container {
   display: grid;
-  gap: 20px;
+  gap: 16px;
 }
 
 .alert-card {
-  background-color: white;
+  padding: 18px 20px;
+  background: #fff;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
-  padding: 20px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  transition: box-shadow 0.2s ease;
-}
-
-.alert-card:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .alert-header-row {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 16px;
+  align-items: baseline;
   gap: 16px;
+  margin-bottom: 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #f3f4f6;
 }
 
 .alert-title {
   margin: 0;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: #1f2937;
 }
 
 .alert-timestamp {
   color: #6b7280;
-  font-size: 13px;
+  font-size: 12px;
   white-space: nowrap;
 }
 
@@ -161,8 +138,6 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  margin-bottom: 16px;
-  padding: 12px 0;
 }
 
 .detail-row {
@@ -171,145 +146,107 @@
   gap: 6px;
 }
 
+/* Field labels in the same style as the "Start a run" fields on the Red team page. */
 .detail-row strong {
   color: #374151;
   font-size: 13px;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+}
+
+.detail-row span {
+  font-size: 14px;
+  color: #1f2937;
 }
 
 .prompt-text {
   margin: 0;
-  padding: 12px;
-  background-color: #f9fafb;
-  border-left: 3px solid #3b82f6;
-  border-radius: 4px;
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-  font-size: 13px;
-  color: #374151;
-  word-break: break-word;
   max-height: 150px;
   overflow-y: auto;
+  padding: 10px 12px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-left: 3px solid #2563eb;
+  border-radius: 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  color: #1f2937;
+  word-break: break-word;
 }
 
 .reason-text {
   margin: 0;
-  color: #374151;
+  color: #1f2937;
   font-size: 14px;
   white-space: pre-wrap;
   word-break: break-word;
 }
 
+/* Threat types and status use the same pill badges as the Controls page. */
 .threat-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 4px;
 }
 
-.threat-tag {
-  display: inline-block;
-  background-color: #fef3c7;
-  color: #92400e;
-  padding: 4px 10px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.status-badge {
-  display: inline-block;
-  padding: 4px 12px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 600;
+.detail-row .threat-tag,
+.detail-row .status-badge {
+  display: inline-flex;
   width: fit-content;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
 }
 
-.status-pending {
-  background-color: #fed7aa;
+.detail-row .threat-tag,
+.detail-row .status-pending {
+  background: #fef3c7;
   color: #92400e;
 }
 
-.status-accepted {
-  background-color: #dcfce7;
-  color: #166534;
+.detail-row .status-accepted {
+  background: #d1fae5;
+  color: #065f46;
 }
 
-.status-denied {
-  background-color: #fecaca;
+.detail-row .status-denied {
+  background: #fee2e2;
   color: #991b1b;
 }
 
+/* Accept and Deny have the shape of the Controls buttons, in green and red. */
 .alert-actions {
   display: flex;
-  gap: 12px;
-  padding-top: 12px;
-  border-top: 1px solid #e5e7eb;
+  gap: 10px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid #f3f4f6;
 }
 
-.btn-accept,
-.btn-deny {
-  flex: 1;
-  padding: 10px 16px;
-  border: none;
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
+.security-apply__btn.alert-btn--accept {
+  background: #047857;
 }
 
-.btn-accept {
-  background-color: #10b981;
-  color: white;
+.security-apply__btn.alert-btn--accept:hover {
+  background: #065f46;
 }
 
-.btn-accept:hover {
-  background-color: #059669;
-  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+.security-apply__btn.alert-btn--deny {
+  background: #b91c1c;
 }
 
-.btn-accept:active {
-  transform: scale(0.98);
+.security-apply__btn.alert-btn--deny:hover {
+  background: #991b1b;
 }
 
-.btn-deny {
-  background-color: #ef4444;
-  color: white;
-}
-
-.btn-deny:hover {
-  background-color: #dc2626;
-  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
-}
-
-.btn-deny:active {
-  transform: scale(0.98);
-}
-
-/* Responsive design */
-@media (max-width: 768px) {
-  .alerts-page {
-    padding: 16px;
-  }
-
-  .alerts-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
-  }
-
+@media (max-width: 760px) {
+  .alerts-header,
   .alert-header-row {
     flex-direction: column;
-    align-items: flex-start;
+    gap: 4px;
   }
 
-  .alert-actions {
-    flex-direction: column;
-  }
-
-  .filter-buttons {
-    justify-content: flex-start;
+  .alerts-header .security-apply__btn {
+    margin-bottom: 16px;
   }
 }

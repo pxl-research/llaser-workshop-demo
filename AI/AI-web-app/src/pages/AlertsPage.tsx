@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { isRedTeamAlert } from "../services/alerts";
 import { getSessionId } from "../services/ChatService";
+import "../styles/security-page.css";
 import "../styles/alerts-page.css";
 
 type AlertStatus = "pending" | "accepted" | "denied";
@@ -100,10 +101,10 @@ function AlertCard({ alert, onAction }: Readonly<AlertCardProps>) {
 
       {alert.status === "pending" && (
         <div className="alert-actions">
-          <button className="btn-accept" onClick={() => onAction(alert.id, "accept")}>
+          <button className="security-apply__btn alert-btn--accept" onClick={() => onAction(alert.id, "accept")}>
             Accept
           </button>
-          <button className="btn-deny" onClick={() => onAction(alert.id, "deny")}>
+          <button className="security-apply__btn alert-btn--deny" onClick={() => onAction(alert.id, "deny")}>
             Deny
           </button>
         </div>
@@ -169,9 +170,9 @@ function AlertsPage() {
   const filteredAlerts = filter === "all" ? visibleAlerts : visibleAlerts.filter((alert) => alert.status === filter);
 
   const renderAlerts = () => {
-    if (loading && !alerts.length) return <div className="loading-message">Loading alerts...</div>;
+    if (loading && !alerts.length) return <p className="security-loading">Loading alerts...</p>;
     if (filteredAlerts.length === 0) {
-      return <div className="empty-message">No {filter === "all" ? "" : filter} alerts found.</div>;
+      return <p className="alerts-empty">No {filter === "all" ? "" : filter} alerts found.</p>;
     }
     return (
       <div className="alerts-container">
@@ -183,45 +184,47 @@ function AlertsPage() {
   };
 
   return (
-    <div className="alerts-page" style={{ margin: "24px" }}>
-      <div className="alerts-header">
-        <div>
-          <h1>Alerts</h1>
-          <p className="alerts-subtitle">
-            A defense blocked these questions. Accept: the chat model answers, in the chat that asked. Deny: the
-            question is dropped. Both unblock that chat.
-          </p>
+    <div className="security-page alerts-page">
+      <div className="security-box">
+        <div className="alerts-header">
+          <div>
+            <h1 className="security-title">Alerts</h1>
+            <p className="security-subtitle">
+              A defense blocked these questions. Accept: the chat model answers, in the chat that asked. Deny: the
+              question is dropped. Both unblock that chat.
+            </p>
+          </div>
+          <button className="security-apply__btn security-apply__btn--secondary" onClick={refresh} disabled={loading}>
+            {loading ? "Loading..." : "Refresh"}
+          </button>
         </div>
-        <button className="refresh-btn" onClick={refresh} disabled={loading}>
-          {loading ? "Loading..." : "Refresh"}
-        </button>
+
+        {error && (
+          <div className="security-error">
+            <strong>Error:</strong> {error}
+          </div>
+        )}
+
+        <div className="filter-section">
+          <div className="filter-buttons">
+            {FILTERS.map((status) => (
+              <button
+                key={status}
+                className={`filter-btn ${filter === status ? "active" : ""}`}
+                onClick={() => setFilter(status)}
+              >
+                {capitalize(status)} ({countFor(status)})
+              </button>
+            ))}
+          </div>
+          <label className="redteam-toggle">
+            <input type="checkbox" checked={showRedTeam} onChange={(e) => setShowRedTeam(e.target.checked)} />
+            Show red-team run alerts ({redTeamCount})
+          </label>
+        </div>
+
+        {renderAlerts()}
       </div>
-
-      {error && (
-        <div className="error-message">
-          <strong>Error:</strong> {error}
-        </div>
-      )}
-
-      <div className="filter-section">
-        <div className="filter-buttons">
-          {FILTERS.map((status) => (
-            <button
-              key={status}
-              className={`filter-btn ${filter === status ? "active" : ""}`}
-              onClick={() => setFilter(status)}
-            >
-              {capitalize(status)} ({countFor(status)})
-            </button>
-          ))}
-        </div>
-        <label className="redteam-toggle">
-          <input type="checkbox" checked={showRedTeam} onChange={(e) => setShowRedTeam(e.target.checked)} />
-          Show red-team run alerts ({redTeamCount})
-        </label>
-      </div>
-
-      {renderAlerts()}
     </div>
   );
 }
