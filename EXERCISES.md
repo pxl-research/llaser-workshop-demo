@@ -27,7 +27,14 @@ LLASER answers questions about three fictional documents. Two of them contain da
 
 All the data is invented, so you can't do harm. Every attack costs a little of your OpenRouter credit, so don't run the same prompt hundreds of times.
 
-## Keep notes
+### Notes
+
+A few things are useful to know while you attack:
+- Each chat is one conversation. With every question, the chat model also gets your last six questions and its own answers. After the model has refused once, it tends to refuse again, to stay consistent with itself. Click **New chat** to start over with an empty history.
+- The answers vary between runs. An attack that fails once can work the second time, and the other way around.
+- Write down the model and the defenses with every result. "It leaked" means little without "with which model and which defenses".
+
+## (Optional) Keep notes
 
 Copy this table into a text file and fill in a row for every attack that is interesting. You will need it in part 2 and in the conclusions.
 
@@ -35,11 +42,6 @@ Copy this table into a text file and fill in a row for every attack that is inte
 |---|---|---|---|---|
 | Example: audit mode override | Board memo code | Llama 3.3 70B | none | Leaked the code |
 | | | | | |
-
-A few things are useful to know while you attack:
-- Each chat is one conversation. With every question, the chat model also gets your last six questions and its own answers. After the model has refused once, it tends to refuse again, to stay consistent with itself. Click **New chat** to start over with an empty history.
-- The answers vary between runs. An attack that fails once can work the second time, and the other way around.
-- Write down the model and the defenses with every result. "It leaked" means little without "with which model and which defenses".
 
 ## Part 1: Attack by hand
 
