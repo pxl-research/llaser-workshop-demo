@@ -83,6 +83,6 @@ if [[ "$exit_code" -ne 0 && "$exit_code" -ne "$ATTACKS_GOT_THROUGH" ]]; then
   exit "$exit_code"
 fi
 
-PROMPTFOO_PORT="$(grep -E '^PROMPTFOO_PORT=' "$ROOT_DIR/.env" 2>/dev/null | tail -n 1 | cut -d= -f2- | tr -d "\"' " || true)"
+PROMPTFOO_PORT="$(grep -E '^PROMPTFOO_PORT=' "$ROOT_DIR/.env" 2>/dev/null | tail -n 1 | cut -d= -f2- | tr -d "\"' \r" || true)"
 echo
 echo "Compare the runs: http://127.0.0.1:${PROMPTFOO_PORT:-3002}"

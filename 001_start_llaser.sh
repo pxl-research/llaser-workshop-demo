@@ -36,7 +36,7 @@ env_value() {
   local name="$1"
   local default="$2"
   local value
-  value="$(grep -E "^${name}=" "$ENV_FILE" | tail -n 1 | cut -d= -f2- | tr -d "\"' " || true)"
+  value="$(grep -E "^${name}=" "$ENV_FILE" | tail -n 1 | cut -d= -f2- | tr -d "\"' \r" || true)"
   echo "${value:-$default}"
 }
 
