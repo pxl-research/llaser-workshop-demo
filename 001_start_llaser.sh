@@ -4,20 +4,19 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ENV_FILE="$ROOT_DIR/.env"
-SKIP_BUILD=0
+BUILD=0
 NO_CACHE=0
 
 usage() {
   cat <<'EOF'
-Usage: ./001_start_llaser.sh [--no-build] [--no-cache]
+Usage: ./001_start_llaser.sh [--build [--no-cache]]
 
-Builds the backend and frontend images from the local source and (re)starts the
-LLASER workshop app, promptfoo included. Every start rebuilds, so code changes are always in the
-running containers; unchanged code reuses the Docker layer cache and is quick.
+Starts the LLASER workshop app with the published images, promptfoo included:
+the same as docker compose up -d, after downloading the newest published images.
 
 Options:
-  --no-build  Start the existing images without rebuilding.
-  --no-cache  Force a full rebuild (ignore the Docker layer cache).
+  --build     Build the backend and frontend from the local source instead (for developers).
+  --no-cache  With --build: force a full rebuild (ignore the Docker layer cache).
 EOF
 }
 
@@ -41,10 +40,36 @@ env_value() {
   echo "${value:-$default}"
 }
 
+# A build puts the NLP model from this folder (gitignored) into the backend image.
+MODEL_DIR="$ROOT_DIR/AI/AI/API/models/malicious_prompt_detector"
+
+# For --build only: copies the NLP model out of the published backend image, which contains it.
+copy_model_from_published_image() {
+  local container="llaser-model-copy-$$"
+  echo "Copying the NLP model out of the published backend image..."
+  "${COMPOSE[@]}" pull backend
+  docker create --name "$container" "$("${COMPOSE[@]}" config --images | grep '/backend:')" >/dev/null
+  mkdir -p "$(dirname "$MODEL_DIR")"
+  docker cp "$container:/app/AI/API/models/malicious_prompt_detector" "$MODEL_DIR"
+  docker rm "$container" >/dev/null
+}
+
+build_from_source() {
+  if [[ ! -f "$MODEL_DIR/model.onnx" ]]; then
+    copy_model_from_published_image
+  fi
+  echo "Building backend and frontend images from local source..."
+  local build_args=()
+  if [[ "$NO_CACHE" -eq 1 ]]; then
+    build_args+=(--no-cache)
+  fi
+  "${COMPOSE[@]}" build ${build_args[@]+"${build_args[@]}"} backend frontend
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --no-build)
-      SKIP_BUILD=1
+    --build)
+      BUILD=1
       shift
       ;;
     --no-cache)
@@ -73,28 +98,19 @@ require_file "$ENV_FILE" \
 
 COMPOSE=(docker compose --project-directory "$ROOT_DIR")
 
-if [[ "$SKIP_BUILD" -eq 0 ]]; then
-  # The backend image bakes in the NLP model from this folder (gitignored). Same tag as .github/workflows/ci.yml.
-  MODEL_DIR="$ROOT_DIR/AI/AI/API/models/malicious_prompt_detector"
-  if [[ ! -f "$MODEL_DIR/model.onnx" ]]; then
-    echo "Pulling the NLP model from GHCR (needs oras: https://oras.land, and oras login ghcr.io)..."
-    oras pull ghcr.io/pxl-research/llaser-nlp-defense/malicious-prompt-detector:v1 -o "$MODEL_DIR" ||
-      echo "NLP model pull failed (private package: run oras login ghcr.io): the app runs, but the NLP defense shows Unavailable."
-  fi
-  echo "Building backend and frontend images from local source..."
-  BUILD_ARGS=()
-  if [[ "$NO_CACHE" -eq 1 ]]; then
-    BUILD_ARGS+=(--no-cache)
-    echo "(full rebuild: --no-cache)"
-  fi
-  "${COMPOSE[@]}" build ${BUILD_ARGS[@]+"${BUILD_ARGS[@]}"} backend frontend
+if [[ "$BUILD" -eq 1 ]]; then
+  build_from_source
 else
-  echo "Skipping image build (--no-build)."
+  echo "Downloading the newest published images..."
+  # Also replaces images that an earlier --build made under the same name.
+  # Without internet, start with the images that are already on this laptop.
+  if ! "${COMPOSE[@]}" pull; then
+    echo "Could not download the newest images; starting with the images already on this laptop."
+  fi
 fi
 
 echo "Starting LLASER..."
-# Images are only pulled when missing locally (promptfoo, or --no-build without a local build),
-# never over the images just built.
+# --no-build: never build here. Without --build, the published images are used, and they contain the NLP model.
 "${COMPOSE[@]}" up -d --no-build
 # The runner's code (promptfoo/runner.mjs) is mounted, not built into an image: restart it so a change is
 # picked up. A run it was doing stops; start it again from the page.

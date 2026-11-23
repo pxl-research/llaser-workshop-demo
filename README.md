@@ -53,9 +53,9 @@ The OpenRouter key is personal and has a credit limit. All keys stop working aft
 
 1. Start the app:
    ```bash
-   docker compose up -d
+   ./001_start_llaser.sh
    ```
-   The first start downloads the images (about 1.8 GB, most of it promptfoo and the NLP model in the backend image).
+   The first start downloads the images (about 1.8 GB, most of it promptfoo and the NLP model in the backend image). Later starts are quick.
 2. Open http://127.0.0.1:8080 and wait until the banner at the top disappears.
 3. Click the upload button and upload the three PDFs in `corpus/` (you can select all three at once).
 4. Ask a question about the course, for example "Who teaches the course?".
@@ -162,25 +162,25 @@ Do not upload confidential documents.
 
 | Problem | Fix |
 |---|---|
-| Port 8080 is in use | Set `LLASER_PORT=8081` in `.env`, run `docker compose up -d`, open http://127.0.0.1:8081. |
-| Banner "AI system unavailable", or http://127.0.0.1:8080/api/ready shows an error with `OPENROUTER_API_KEY` | The key is missing in `.env`. Add it and run `docker compose up -d`. |
+| Port 8080 is in use | Set `LLASER_PORT=8081` in `.env`, run `./001_start_llaser.sh`, open http://127.0.0.1:8081. |
+| Banner "AI system unavailable", or http://127.0.0.1:8080/api/ready shows an error with `OPENROUTER_API_KEY` | The key is missing in `.env`. Add it and run `./001_start_llaser.sh`. |
 | Answer `Query processing failed`, or upload fails with `Indexing failed: the embedding or vector store service returned an error` | Wrong OpenRouter key, no credit, or the model is not available. |
 | Error 421 or 403 | Open http://127.0.0.1:8080 or http://localhost:8080. The app blocks other addresses (your LAN IP, a hostname) and requests from other websites on purpose. |
-| Page does not load | Run `docker compose ps`. If the backend is not running, run `docker compose up -d`. The frontend recovers by itself. |
+| Page does not load | Run `docker compose ps`. If the backend is not running, run `./001_start_llaser.sh`. The frontend recovers by itself. |
 | `query blocked: prompt defense unavailable, try again later` | A defense is on but does not work. LLM defense: the Spark and the OpenRouter fallback both failed, so check `OPENROUTER_API_KEY`; switch the defense off and on, or leave it off. NLP defense: the model is missing. |
-| Controls page: NLP defense "Unavailable", "model not found" | You run a locally built backend image without the model. Run `docker compose pull backend && docker compose up -d`, then switch the NLP defense off and on. |
+| Controls page: NLP defense "Unavailable", "model not found" | The backend runs an image without the model, for example after a `--build`. Run `./001_start_llaser.sh` without `--build` to start the published images, then switch the NLP defense off and on. |
 | "Your session is currently blocked" | Go to the Alerts page and accept or deny the alert, or open a new tab. |
 | Upload: "Unsupported document type" | Upload PDF files only. |
 | Odd answer order | The reranker provider is down; the app then uses the vector order. |
 | Windows: Docker does not start | Turn on WSL 2 and virtualization in the BIOS/UEFI. Windows on Arm: Docker Desktop is Early Access there. |
 | Image pull too slow at the venue | Ask for the USB stick. Find your architecture with `docker version --format '{{.Server.Arch}}'` (amd64 or arm64), then run `docker load -i llaser-<arch>.tar`. The app still needs internet for OpenRouter. |
 
-Stop the app: `docker compose down`. Reset everything (documents, chat memory, the promptfoo runs): `docker compose down -v`.
+Stop the app: `./002_stop_llaser.sh`. Reset everything (documents, chat memory, the promptfoo runs): `./002_stop_llaser.sh --reset`.
 
 ## Development (macOS/Linux)
 
-- `./001_start_llaser.sh` builds the backend and frontend from the local source and starts the app, so code changes are always in the containers. promptfoo starts with it. `--no-cache` forces a full rebuild; `--no-build` starts the existing images.
-- `./002_stop_llaser.sh` stops everything, promptfoo included. `--reset` also deletes the volumes (documents, chat memory, promptfoo runs). The backend build bakes in the NLP model from `AI/AI/API/models/malicious_prompt_detector/`; the script pulls it there with [oras](https://oras.land) when it is missing. The package is private: run `oras login ghcr.io` first with a GitHub token that has `read:packages` and access to it.
+- `./001_start_llaser.sh` downloads the newest published images and starts the app, promptfoo included. `./001_start_llaser.sh --build` builds the backend and frontend from the local source instead, so your code changes are in the containers; add `--no-cache` for a full rebuild. The build puts the NLP model from `AI/AI/API/models/malicious_prompt_detector/` (gitignored) into the image; when that folder is empty, the script first copies the model out of the published backend image.
+- `./002_stop_llaser.sh` stops everything, promptfoo included. `--reset` also deletes the volumes (documents, chat memory, promptfoo runs).
 - The **Auto red team** page starts runs through the `promptfoo-runner` service (`promptfoo/runner.mjs`): it runs the same command as `./005_promptfoo_run.sh`, so promptfoo cloud grades the answers. It has no published port; only the backend calls it. Its log: `docker compose logs promptfoo-runner`.
 - `./004_promptfoo_generate.sh [--quick | --full]` (hosts only) regenerates an attack set from `promptfoo/redteam-quick.yaml`, `promptfoo/redteam.yaml` or `promptfoo/redteam-full.yaml` into `promptfoo/attack-sets/`, without the generator's e-mail address. Commit the result. Runs on the old set no longer compare with runs on the new one.
 
