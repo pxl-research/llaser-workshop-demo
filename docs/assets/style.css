@@ -1,0 +1,455 @@
+/* Workshop page styles. The colors, radii and shadows match the LLASER app
+   (AI/AI-web-app/src/index.css and App.css). */
+
+:root {
+  --color-primary: #325dd8;
+  --color-primary-dark: #2449b8;
+  --color-accent: #d91089;
+  --color-ink: #111827;
+  --color-muted: #64748b;
+  --color-border: #dbe4f0;
+  --surface-card: #ffffff;
+  --surface-soft: #f1f5f9;
+  --radius-md: 14px;
+  --radius-lg: 22px;
+  --radius-xl: 30px;
+  --shadow-soft: 0 18px 45px rgba(15, 23, 42, 0.08);
+  --shadow-card: 0 24px 70px rgba(15, 23, 42, 0.14);
+  --page-width: min(1000px, calc(100% - 32px));
+  color-scheme: light;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: var(--color-ink);
+  scroll-padding-top: 96px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  min-width: 320px;
+  margin: 0;
+  line-height: 1.6;
+  background:
+    radial-gradient(circle at 9% 18%, rgba(217, 16, 137, 0.18), transparent 28rem),
+    radial-gradient(circle at 88% 12%, rgba(50, 93, 216, 0.22), transparent 30rem),
+    linear-gradient(180deg, #ffffff 0%, #f8fbff 42%, #eef4ff 100%);
+  background-color: #f8fafc;
+  background-attachment: fixed;
+}
+
+a {
+  color: var(--color-primary);
+  text-underline-offset: 3px;
+}
+
+a:hover {
+  color: var(--color-primary-dark);
+}
+
+/* ===== Header, the same glass bar as the app ===== */
+
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: rgba(255, 255, 255, 0.88);
+  border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(18px);
+}
+
+.header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  width: var(--page-width);
+  margin: 0 auto;
+  padding: 16px 0;
+}
+
+.brand {
+  display: flex;
+  flex-direction: column;
+  color: var(--color-ink);
+  text-decoration: none;
+}
+
+.brand-title {
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.brand-subtitle {
+  margin-top: 6px;
+  color: var(--color-muted);
+  font-size: 0.85rem;
+  line-height: 1.2;
+}
+
+.header-nav {
+  display: flex;
+  gap: 4px;
+  padding: 6px;
+  overflow-x: auto;
+  background: rgba(241, 245, 249, 0.86);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 999px;
+}
+
+.nav-pill {
+  padding: 8px 14px;
+  color: var(--color-muted);
+  border-radius: 999px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.nav-pill:hover {
+  color: var(--color-ink);
+}
+
+/* The page that you are on, the same as the active tab in the app. */
+.nav-pill.active {
+  color: var(--color-primary);
+  background: #ffffff;
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.08);
+}
+
+/* ===== Hero with the two environments ===== */
+
+.page {
+  width: var(--page-width);
+  margin: 0 auto;
+  padding: 40px 0 24px;
+}
+
+.hero,
+.page-intro {
+  padding: 8px 0 16px;
+}
+
+.eyebrow {
+  margin: 0 0 12px;
+  color: var(--color-accent);
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.hero-title {
+  margin: 0;
+  font-size: clamp(2rem, 5vw, 3.2rem);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+}
+
+.accent {
+  background: linear-gradient(90deg, var(--color-accent), var(--color-primary));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.hero-lead {
+  max-width: 680px;
+  color: var(--color-muted);
+  font-size: 1.1rem;
+}
+
+.env-heading {
+  margin: 32px 0 4px;
+  font-size: 1.3rem;
+}
+
+.env-intro {
+  margin: 0 0 16px;
+  color: var(--color-muted);
+}
+
+.env-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.env-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 24px;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  backdrop-filter: blur(12px);
+}
+
+.env-card h3 {
+  margin: 12px 0 4px;
+  font-size: 1.2rem;
+}
+
+.env-card p {
+  flex: 1;
+  margin: 0 0 20px;
+  color: var(--color-muted);
+}
+
+.env-tag {
+  padding: 4px 12px;
+  color: var(--color-primary);
+  background: rgba(50, 93, 216, 0.1);
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.env-tag-accent {
+  color: var(--color-accent);
+  background: rgba(217, 16, 137, 0.1);
+}
+
+.button {
+  display: inline-block;
+  padding: 12px 20px;
+  color: #ffffff;
+  border-radius: 999px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.button-primary {
+  background: var(--color-primary);
+  box-shadow: 0 10px 22px rgba(50, 93, 216, 0.3);
+}
+
+.button-primary:hover {
+  color: #ffffff;
+  background: var(--color-primary-dark);
+}
+
+.button-accent {
+  background: var(--color-accent);
+  box-shadow: 0 10px 22px rgba(217, 16, 137, 0.3);
+}
+
+.button-accent:hover {
+  color: #ffffff;
+  background: #b30d71;
+}
+
+.button-disabled {
+  color: var(--color-muted);
+  background: var(--surface-soft);
+  border: 1px dashed var(--color-border);
+}
+
+/* ===== One card per section of the exercises ===== */
+
+.card {
+  margin-top: 24px;
+  padding: 28px 32px;
+  background: var(--surface-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-soft);
+}
+
+.card h2 {
+  position: relative;
+  margin: 0 0 16px;
+  padding-left: 16px;
+  font-size: 1.5rem;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+
+/* A short gradient bar in front of every section title. */
+.card h2::before {
+  content: "";
+  position: absolute;
+  top: 0.15em;
+  bottom: 0.15em;
+  left: 0;
+  width: 5px;
+  background: linear-gradient(180deg, var(--color-accent), var(--color-primary));
+  border-radius: 999px;
+}
+
+.card h3 {
+  margin: 28px 0 8px;
+  color: var(--color-primary-dark);
+  font-size: 1.15rem;
+}
+
+.card h4 {
+  margin: 20px 0 8px;
+}
+
+.card li + li {
+  margin-top: 4px;
+}
+
+code {
+  padding: 2px 6px;
+  color: #b30d71;
+  background: #fdf2f8;
+  border-radius: 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.88em;
+  overflow-wrap: anywhere;
+}
+
+pre {
+  padding: 14px 16px;
+  overflow-x: auto;
+  background: var(--surface-soft);
+  border-left: 4px solid var(--color-primary);
+  border-radius: var(--radius-md);
+}
+
+pre code {
+  padding: 0;
+  color: var(--color-ink);
+  background: transparent;
+}
+
+/* Wide tables scroll inside their card instead of widening the page. */
+.table-wrap {
+  margin: 16px 0;
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+
+th,
+td {
+  padding: 10px 14px;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--color-border);
+}
+
+th {
+  color: var(--color-muted);
+  background: #f8fafc;
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Keeps times such as "10:00 - 10:30" and prompt numbers on one line. */
+td:first-child {
+  white-space: nowrap;
+}
+
+tr:last-child td {
+  border-bottom: 0;
+}
+
+/* ===== Previous and next page ===== */
+
+.pager {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 32px;
+}
+
+.pager-link {
+  display: flex;
+  flex-direction: column;
+  min-width: 180px;
+  padding: 14px 20px;
+  color: var(--color-ink);
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-soft);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.pager-link:hover {
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.pager-next {
+  margin-left: auto;
+  text-align: right;
+}
+
+.pager-direction {
+  color: var(--color-muted);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* ===== Footer ===== */
+
+.page-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px 24px;
+  width: var(--page-width);
+  margin: 0 auto;
+  padding: 24px 0 40px;
+  color: var(--color-muted);
+  font-size: 0.85rem;
+}
+
+/* ===== Phones ===== */
+
+@media (max-width: 760px) {
+  .header-inner {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    padding: 12px 0;
+  }
+
+  /* All five pages stay visible: the pills wrap to a second row. */
+  .header-nav {
+    flex-wrap: wrap;
+    justify-content: center;
+    border-radius: var(--radius-lg);
+  }
+
+  .page {
+    padding-top: 24px;
+  }
+
+  .card {
+    padding: 20px 18px;
+    border-radius: var(--radius-lg);
+  }
+
+  .pager-link {
+    flex: 1;
+    min-width: 0;
+  }
+}

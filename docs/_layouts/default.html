@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% if page.title %}{{ page.title }} · {% endif %}{{ site.title }}</title>
+  <meta name="description" content="{{ site.description }}">
+  <link rel="stylesheet" href="{{ '/assets/style.css' | relative_url }}">
+</head>
+<body>
+  {% comment %} Finds this page in the page list, for the menu and the previous/next buttons. {% endcomment %}
+  {% assign current_index = -1 %}
+  {% for item in site.workshop_pages %}
+    {% if item.url == page.url %}{% assign current_index = forloop.index0 %}{% endif %}
+  {% endfor %}
+  {% assign previous_index = current_index | minus: 1 %}
+  {% assign next_index = current_index | plus: 1 %}
+
+  <header class="app-header">
+    <div class="header-inner">
+      <a class="brand" href="{{ '/' | relative_url }}">
+        <span class="brand-title">LLASER</span>
+        <span class="brand-subtitle">Workshop: attack and defend an LLM app</span>
+      </a>
+      <nav class="header-nav" aria-label="Workshop pages">
+        {% for item in site.workshop_pages %}
+          <a class="nav-pill{% if item.url == page.url %} active{% endif %}"
+             href="{{ item.url | relative_url }}"
+             {% if item.url == page.url %}aria-current="page"{% endif %}>{{ item.label }}</a>
+        {% endfor %}
+      </nav>
+    </div>
+  </header>
+
+  {% comment %}
+    The page text is split at every level-2 heading, so each section gets its own card.
+    The text before the first heading is the introduction, shown at the top of the page.
+  {% endcomment %}
+  {% assign wrapped = content | replace: '<table>', '<div class="table-wrap"><table>' | replace: '</table>', '</table></div>' %}
+  {% assign sections = wrapped | split: '<h2 ' %}
+
+  <main class="page">
+    {% if page.hero %}
+      <section class="hero">
+        <p class="eyebrow">PXL Research · 3-hour hands-on workshop</p>
+        <h1 class="hero-title">Attack and defend an <span class="accent">LLM app</span></h1>
+        <div class="hero-lead">{{ sections.first }}</div>
+
+        <h2 class="env-heading">Choose your environment</h2>
+        <p class="env-intro">The exercises are the same in both environments.</p>
+        <div class="env-grid">
+          <article class="env-card">
+            <span class="env-tag">Local</span>
+            <h3>Run LLASER on your laptop</h3>
+            <p>You install Docker and run LLASER yourself, at <code>http://127.0.0.1:8080</code>. The first start downloads about 1.8 GB.</p>
+            <a class="button button-primary" href="{{ site.repo_url }}#setup">Open the setup guide</a>
+          </article>
+          <article class="env-card">
+            <span class="env-tag env-tag-accent">Cloud</span>
+            <h3>Use the cloud environment</h3>
+            <p>You install nothing. You log in with the key that you received from the workshop hosts.</p>
+            {% if site.cloud_url and site.cloud_url != "" %}
+              <a class="button button-accent" href="{{ site.cloud_url }}">Open the cloud environment</a>
+            {% else %}
+              <span class="button button-disabled" aria-disabled="true">The link follows soon</span>
+            {% endif %}
+          </article>
+        </div>
+      </section>
+    {% else %}
+      <section class="page-intro">
+        <p class="eyebrow">{{ page.eyebrow }}</p>
+        <h1 class="hero-title">{{ page.title }}</h1>
+        <div class="hero-lead">{{ sections.first }}</div>
+      </section>
+    {% endif %}
+
+    {% for section in sections offset: 1 %}
+      <section class="card">
+        <h2 {{ section }}
+      </section>
+    {% endfor %}
+
+    <nav class="pager" aria-label="Previous and next page">
+      {% if previous_index >= 0 %}
+        {% assign previous_page = site.workshop_pages[previous_index] %}
+        <a class="pager-link" href="{{ previous_page.url | relative_url }}">
+          <span class="pager-direction">Previous</span>{{ previous_page.label }}
+        </a>
+      {% endif %}
+      {% if current_index >= 0 and next_index < site.workshop_pages.size %}
+        {% assign next_page = site.workshop_pages[next_index] %}
+        <a class="pager-link pager-next" href="{{ next_page.url | relative_url }}">
+          <span class="pager-direction">Next</span>{{ next_page.label }}
+        </a>
+      {% endif %}
+    </nav>
+  </main>
+
+  <footer class="page-footer">
+    <a href="{{ site.repo_url }}">pxl-research/llaser-workshop-demo on GitHub</a>
+    <span>All documents and personal data in LLASER are fictional test data.</span>
+  </footer>
+</body>
+</html>

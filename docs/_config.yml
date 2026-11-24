@@ -1,4 +1,27 @@
-# GitHub Pages settings for the workshop landing page (docs/index.md).
+# GitHub Pages settings for the workshop site. Every page uses _layouts/default.html,
+# which matches the LLASER app style.
 title: LLASER workshop
-description: Attack and defend an LLM app with RAG
-theme: jekyll-theme-minimal
+description: Attack and defend an LLM app with RAG, in a 3-hour hands-on workshop.
+
+repo_url: https://github.com/pxl-research/llaser-workshop-demo
+# Leave empty until the cloud environment is online; the start page then shows "The link follows soon".
+cloud_url: ""
+
+# The pages in workshop order: the header menu and the previous/next buttons follow this list.
+workshop_pages:
+  - url: /
+    label: Start
+  - url: /part-1.html
+    label: 1. Attack
+  - url: /part-2.html
+    label: 2. Defend
+  - url: /part-3.html
+    label: 3. Red team
+  - url: /conclusions.html
+    label: Conclusions
+
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: default
