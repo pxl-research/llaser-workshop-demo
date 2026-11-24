@@ -92,6 +92,8 @@ for set_name in quick workshop full; do
 done
 for f in corpus/*.txt; do
   check "corpus $(basename "$f" .txt) has its PDF" test -s "${f%.txt}.pdf"
+  # The workshop page (docs/) offers the same PDFs as downloads for the cloud environment.
+  check "workshop page offers the same $(basename "$f" .txt) PDF" cmp -s "${f%.txt}.pdf" "docs/corpus/$(basename "$f" .txt).pdf"
 done
 
 if [ "$failed" -gt 0 ]; then echo "test-promptfoo: $failed check(s) failed"; exit 1; fi

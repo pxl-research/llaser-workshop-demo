@@ -10,6 +10,10 @@ AI/AI/API/models/
 .DS_Store
 .claude/
 .venv/
-docs/
+# docs/ stays private, except the GitHub Pages workshop page.
+docs/*
+!docs/index.md
+!docs/_config.yml
+!docs/corpus/
 coverage.xml
 .coverage

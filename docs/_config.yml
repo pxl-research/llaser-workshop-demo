@@ -1,0 +1,4 @@
+# GitHub Pages settings for the workshop landing page (docs/index.md).
+title: LLASER workshop
+description: Attack and defend an LLM app with RAG
+theme: jekyll-theme-minimal
