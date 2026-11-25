@@ -3,7 +3,7 @@ title: Automated red teaming with promptfoo
 eyebrow: Part 3 · 11:15 - 11:45
 ---
 
-**Time: 30 minutes.** Your own prompts show *that* an attack can work. promptfoo shows *how often* attacks work: it sends the same 72 attacks every time and counts how many get through. In this part, you use it to measure the question from 2e: do the guardrails make Mistral secure?
+**Time: 30 minutes.** Your own prompts show *that* an attack can work. promptfoo shows *how often* attacks work: it sends the same 72 attacks every time and counts how many get through. In this part, you use it to measure the question from 2e: do the guardrails make Mistral Nemo secure?
 
 The steps for a run are in the [README](https://github.com/pxl-research/llaser-workshop-demo#automated-red-teaming-with-promptfoo). A run of the workshop set takes about 7 minutes, and only one run can go at a time.
 
@@ -13,7 +13,7 @@ Start the runs in this order:
 
 1. Set the chat model to `mistralai/mistral-nemo` and switch off both prompt defenses. Start a run named `mistral` on the **Auto red team** page right away.
 2. When it is done, switch on both prompt defenses, wait until both show **Active**, and start a run named `mistral-guarded`.
-3. *Optional:* if there is time, switch both defenses off again, set the default model, and start a run named `llama` to compare with.
+3. When it is done, switch both defenses off again, set the chat model to `meta-llama/llama-3.3-70b-instruct`, and start a run named `llama` to compare with.
 
 ## While the runs go on, study the results
 

@@ -18,7 +18,7 @@ UPLOAD_DIR = Path("/app/data")
 STORE_DIR = UPLOAD_DIR / ".llaser_store"
 DOCUMENT_EXTENSIONS = {".pdf"}
 
-LLM = os.getenv("LLM", "meta-llama/llama-3.3-70b-instruct")
+LLM = os.getenv("LLM", "mistralai/mistral-nemo")
 EMBEDDING_MODEL = "baai/bge-m3"
 RERANKER = "qwen/qwen3-reranker-8b"
 

@@ -47,13 +47,14 @@ Ask yourself which of the other defenses would have stopped this attack.
 
 ## 2e. Can guardrails make a weak European model secure? (10 minutes)
 
-The chat model is one of the most important factors in which attacks get through. Our earlier research showed large differences between models. `mistralai/mistral-nemo`, from the French company Mistral AI, was the weakest model in our tests (see [Models to compare](https://github.com/pxl-research/llaser-workshop-demo#models-to-compare)). For organisations in Europe, a European model can be an important choice. So the question is whether extra guardrails can make it secure anyway.
+The chat model is one of the most important factors in which attacks get through. Our earlier research showed large differences between models. `mistralai/mistral-nemo`, the default model, from the French company Mistral AI, was the weakest model in our tests (see [Models to compare](https://github.com/pxl-research/llaser-workshop-demo#models-to-compare)). For organisations in Europe, a European model can be an important choice. So the question is whether extra guardrails can make it secure anyway, and how it compares with models that have stronger built-in guardrails.
 
-1. Switch off both prompt defenses and keep the default system prompt. Switch the chat model to `mistralai/mistral-nemo`.
-2. Run prompts 3, 4, 5 and 10 and your best attack. Compare the results with the default model in part 1.
+1. Switch off both prompt defenses and keep the default system prompt and the default model `mistralai/mistral-nemo`.
+2. Run prompts 3, 4, 5 and 10 and your best attack.
 3. Add the guardrails one at a time: first the NLP defense, then the LLM defense as well. Run the same attacks after each step.
-4. *Optional:* Mistral AI has more models in the model list. Try a larger one with the same attacks.
+4. Keep both guardrails on. Switch the chat model to `meta-llama/llama-3.3-70b-instruct`, and then to `openai/gpt-6-luna`. Both have stronger built-in guardrails. Run the same attacks with each model.
+5. *Optional:* Mistral AI has more models in the model list. Try a larger one with the same attacks.
 
-Write down which attacks still get through Mistral with all guardrails on. Is "Mistral with guardrails" now as safe as "the default model without guardrails"?
+Write down which attacks still get through Mistral Nemo with all guardrails on. Is "Mistral Nemo with guardrails" now as safe as Llama 3.3 70B or GPT-6 Luna with the same guardrails?
 
-The guardrails come from somewhere too. The NLP defense is a fine-tuned DistilBERT model that runs on your laptop. The LLM defense uses a Qwen model, from the Chinese company Alibaba, on the PXL DGX Spark in Belgium. Ask yourself what a completely European setup would need.
+The guardrails come from somewhere too. The NLP defense is a fine-tuned DistilBERT model that runs on your laptop. The LLM defense uses a Qwen model, from the Chinese company Alibaba. It runs on the PXL DGX Spark in Belgium when the Spark is available, and otherwise through OpenRouter. Ask yourself what a completely European setup would need.
